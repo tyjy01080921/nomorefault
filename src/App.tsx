@@ -7,7 +7,7 @@ import AnalysisSetup from './pages/AnalysisSetup';
 import Result from './pages/Result';
 import History from './pages/History';
 import { useStore } from './store/useStore';
-import { Sun, Moon, Globe, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, Globe, AlertTriangle, Link } from 'lucide-react';
 
 const App = () => {
   const isDarkMode = useStore((state) => state.isDarkMode);
@@ -51,8 +51,8 @@ const App = () => {
             width: '100%',
             height: '56px',
             background: 'var(--panel-bg)',
-            display: 'flex',
-            justifyContent: 'space-between',
+            display: 'grid', // Use grid to ensure center alignment and no overlap
+            gridTemplateColumns: 'min-content 1fr min-content',
             alignItems: 'center',
             padding: '0 16px',
             boxSizing: 'border-box',
@@ -60,6 +60,7 @@ const App = () => {
             position: 'sticky',
             top: 0,
             borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+            gap: '8px'
           }}
         >
           {/* Left: Dark mode toggle */}
@@ -85,11 +86,11 @@ const App = () => {
           {/* Center: Title */}
           <div
             style={{
-              flex: 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
+              minWidth: 0, // Allow title to truncate if very narrow
             }}
           >
             <AlertTriangle size={18} color="var(--accent-color)" />
@@ -99,32 +100,58 @@ const App = () => {
                 fontWeight: 'bold',
                 color: 'var(--accent-color)',
                 whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
               }}
             >
               No More Fault
             </span>
           </div>
 
-          {/* Right: Language toggle */}
-          <button
-            onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--text-sub)',
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: '16px',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <Globe size={14} />
-            {language === 'ko' ? 'EN' : 'KO'}
-          </button>
+          {/* Right: Actions (Share + Language) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+               onClick={copyUrlToClipboard}
+               style={{
+                 background: 'transparent',
+                 border: '1px solid var(--text-sub)',
+                 borderRadius: '50%',
+                 color: 'var(--text-main)',
+                 cursor: 'pointer',
+                 display: 'flex',
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 width: '32px',
+                 height: '32px',
+               }}
+               title={language === 'ko' ? '공유하기' : 'Share'}
+             >
+               <Link size={14} />
+             </button>
+
+            <button
+              onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--text-sub)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                padding: '0 10px',
+                borderRadius: '16px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '32px',
+                gap: '4px',
+                minWidth: '40px'
+              }}
+            >
+              <Globe size={14} />
+              {language === 'ko' ? 'EN' : 'KO'}
+            </button>
+          </div>
         </header>
 
         {/* Page Content */}
