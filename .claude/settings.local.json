@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(npm run:*)",
+      "Read(//tmp/**)",
+      "Bash(npx vite:*)",
+      "Bash(jobs -l)",
+      "Bash(find backup/서비스분析기 -type f -name *.jsx -o -name *.tsx)",
+      "Bash(git checkout:*)",
+      "Bash(for commit:*)",
+      "Bash(do echo:*)",
+      "Bash(node --input-type=module)",
+      "Bash(python3 -:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5178/dist/assets/index-D5zNEOgV.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5178/assets/index-De3_g6eE.css)",
+      "Bash(curl -s http://localhost:5178/dist/assets/index-D5zNEOgV.js)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Skill(browse)",
+      "Skill(browse:*)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Bash(curl -s https://nomorefault.pages.dev/)",
+      "Bash(grep -E \"\\\\.\\(tsx?|json|html\\)$\")"
+    ]
+  }
+}
