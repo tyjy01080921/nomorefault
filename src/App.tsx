@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from './utils/constants';
+import Home from './pages/Home';
 import Camera from './pages/Camera';
 import AnalysisSetup from './pages/AnalysisSetup';
 import Result from './pages/Result';
@@ -148,7 +149,7 @@ const App = () => {
 
         {/* Page Content */}
         <Routes>
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.CAMERA} replace />} />
+          <Route path={ROUTES.HOME} element={<Home />} />
           <Route path={ROUTES.CAMERA} element={<Camera />} />
           <Route path={ROUTES.ANALYSIS} element={<AnalysisSetup />} />
           <Route path={ROUTES.RESULT} element={<Result />} />
