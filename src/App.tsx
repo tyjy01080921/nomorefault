@@ -17,6 +17,7 @@ const App = () => {
 
   // Apply dark mode
   useEffect(() => {
+    console.log('App Version: 1.2.1 Loaded');
     const root = document.documentElement;
     if (isDarkMode) {
       root.style.setProperty('--bg-color', '#121212');

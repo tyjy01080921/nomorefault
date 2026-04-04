@@ -17,6 +17,7 @@ export default defineConfig({
         name: 'NoMoreFault - 서비스 폴트 판독기',
         short_name: 'NoMoreFault',
         description: '배드민턴 서비스 폴트 판독 AI - BWF 1.15m 규정 기반 판정 및 자세 교정',
+        version: '1.2.1',
         theme_color: '#050a0e',
         background_color: '#050a0e',
         display: 'standalone',

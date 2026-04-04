@@ -220,8 +220,9 @@ const Home = () => {
           />
         </div>
       </div>
+      {/* Copyright */}
       <div style={{ textAlign: 'center', marginTop: '16px', color: 'var(--text-sub)', fontSize: '0.6rem', lineHeight: '1.4' }}>
-        v1.2.0<br/>
+        v1.2.1<br/>
         ROUM S & E Co., Ltd.<br/>
         #117, 201 Hyangdong-ro, Deogyang-gu, Goyang-si, Gyeonggi-do, Rep. of Korea<br/>
         Copyright © 2026 ROUM S & E. All rights reserved.
