@@ -60,7 +60,7 @@ export const useStore = create<AppState>((set) => ({
   setShuttlecockPos: (pos) => set({ shuttlecockPos: pos }),
 
   // UI Theme
-  isDarkMode: false,
+  isDarkMode: true,
   setIsDarkMode: (dark) => set({ isDarkMode: dark }),
 
   // Language

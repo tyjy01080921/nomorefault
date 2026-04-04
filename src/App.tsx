@@ -7,6 +7,7 @@ import AnalysisSetup from './pages/AnalysisSetup';
 import Result from './pages/Result';
 import History from './pages/History';
 import { useStore } from './store/useStore';
+import { Sun, Moon, Globe, AlertTriangle } from 'lucide-react';
 
 const App = () => {
   const isDarkMode = useStore((state) => state.isDarkMode);
@@ -18,10 +19,10 @@ const App = () => {
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
-      root.style.setProperty('--bg-color', '#0a0e12');
-      root.style.setProperty('--panel-bg', '#1a1f26');
+      root.style.setProperty('--bg-color', '#121212');
+      root.style.setProperty('--panel-bg', '#1e1e1e');
       root.style.setProperty('--text-main', '#ffffff');
-      root.style.setProperty('--text-sub', '#b0b8c1');
+      root.style.setProperty('--text-sub', '#a0a0a0');
       root.style.setProperty('--accent-color', '#ff4081');
     } else {
       root.style.setProperty('--bg-color', '#ffffff');
@@ -35,7 +36,6 @@ const App = () => {
   const copyUrlToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      // 토스트 메시지 표시 가능 (향후 추가)
       alert(language === 'ko' ? 'URL이 복사되었습니다' : 'URL copied to clipboard');
     } catch (err) {
       console.error('Failed to copy URL:', err);
@@ -44,7 +44,7 @@ const App = () => {
 
   return (
     <Router>
-      <div style={{ background: 'var(--bg-color)', color: 'var(--text-main)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg-color)', color: 'var(--text-main)', minHeight: '100vh', transition: 'background-color 0.3s, color 0.3s' }}>
         {/* Global Header */}
         <header
           style={{
@@ -59,6 +59,7 @@ const App = () => {
             zIndex: 50,
             position: 'sticky',
             top: 0,
+            borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
           }}
         >
           {/* Left: Dark mode toggle */}
@@ -66,85 +67,64 @@ const App = () => {
             onClick={() => setIsDarkMode(!isDarkMode)}
             style={{
               background: 'transparent',
-              border: 'none',
+              border: '1px solid var(--text-sub)',
+              borderRadius: '50%',
               color: 'var(--text-main)',
               cursor: 'pointer',
-              fontSize: '20px',
-              padding: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              minWidth: '40px',
-              height: '40px',
+              width: '32px',
+              height: '32px',
             }}
             title={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
           >
-            {isDarkMode ? '☀️' : '🌙'}
+            {isDarkMode ? <Sun size={16} color="var(--text-main)" /> : <Moon size={16} color="var(--text-main)" />}
           </button>
 
           {/* Center: Title */}
-          <span
-            style={{
-              fontSize: '14px',
-              fontWeight: 'bold',
-              color: 'var(--accent-color)',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              textAlign: 'center',
-              margin: '0 8px',
-            }}
-          >
-            No More Fault
-          </span>
-
-          {/* Right: Share + Language */}
           <div
             style={{
+              flex: 1,
               display: 'flex',
-              gap: '8px',
               alignItems: 'center',
-              justifyContent: 'flex-end',
+              justifyContent: 'center',
+              gap: '6px',
             }}
           >
-            {/* Share button */}
-            <button
-              onClick={copyUrlToClipboard}
+            <AlertTriangle size={18} color="var(--accent-color)" />
+            <span
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                fontSize: '18px',
-                padding: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '40px',
-                height: '40px',
-              }}
-              title={language === 'ko' ? 'URL 복사' : 'Copy URL'}
-            >
-              🌐
-            </button>
-
-            {/* Language toggle */}
-            <button
-              onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--accent-color)',
-                color: 'var(--accent-color)',
-                cursor: 'pointer',
-                padding: '6px 12px',
-                borderRadius: '16px',
-                fontSize: '12px',
+                fontSize: '16px',
                 fontWeight: 'bold',
-                minWidth: '40px',
+                color: 'var(--accent-color)',
+                whiteSpace: 'nowrap',
               }}
             >
-              {language === 'ko' ? 'EN' : '한'}
-            </button>
+              No More Fault
+            </span>
           </div>
+
+          {/* Right: Language toggle */}
+          <button
+            onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--text-sub)',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: '16px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <Globe size={14} />
+            {language === 'ko' ? 'EN' : 'KO'}
+          </button>
         </header>
 
         {/* Page Content */}
