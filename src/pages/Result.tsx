@@ -52,57 +52,67 @@ const Result = () => {
   return (
     <div style={{
       background: 'var(--bg-color)',
-      minHeight: 'calc(100vh - 56px)',
+      minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
       padding: '24px 16px',
       gap: '24px',
+      alignItems: 'center',
     }}>
+      <h3 style={{ color: 'var(--accent-color)', fontWeight: 800, margin: '20px 0 0', fontSize: '1.2rem' }}>
+        {language === 'ko' ? '분석 결과' : 'Analysis Result'}
+      </h3>
 
-      {/* Verdict badge */}
-      <div style={{ textAlign: 'center' }}>
+      {/* Main Verdict Card */}
+      <div style={{
+        background: 'var(--panel-bg)',
+        borderRadius: '24px',
+        width: '100%',
+        maxWidth: '380px',
+        padding: '32px 24px',
+        textAlign: 'center',
+        border: `1px solid var(--card-border)`,
+        boxShadow: '0 12px 32px rgba(255, 159, 180, 0.15)',
+        backdropFilter: 'blur(10px)',
+      }}>
         <div style={{
-          fontSize: '72px',
-          fontWeight: 'bold',
+          fontSize: '48px',
+          fontWeight: 900,
           color: display.color,
-          lineHeight: 1.1,
           marginBottom: '8px',
+          textShadow: `0 2px 8px ${display.color}22`,
         }}>
           {display.label}
         </div>
-        <div style={{ fontSize: '16px', color: 'var(--text-sub)' }}>{display.sub}</div>
-      </div>
-
-      {/* Angle metrics */}
-      <div style={{
-        background: 'var(--panel-bg)',
-        borderRadius: '16px',
-        padding: '20px 24px',
-        width: '100%',
-        maxWidth: '360px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-      }}>
-        <div style={{ fontSize: '13px', color: 'var(--text-sub)', marginBottom: '4px', fontWeight: 'bold' }}>
-          {language === 'ko' ? '관절 각도' : 'Joint Angles'}
+        <div style={{ fontSize: '1rem', color: 'var(--text-sub)', fontWeight: 600, marginBottom: '24px' }}>
+          {display.sub}
         </div>
-        {[
-          { label: language === 'ko' ? '어깨' : 'Shoulder', value: angles.shoulder },
-          { label: language === 'ko' ? '팔꿈치' : 'Elbow', value: angles.elbow },
-          { label: language === 'ko' ? '손목' : 'Wrist', value: angles.wrist },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-main)', fontSize: '15px' }}>{label}</span>
-            <span style={{ color: display.color, fontWeight: 'bold', fontSize: '18px' }}>{value}°</span>
-          </div>
-        ))}
+
+        {/* Angle Metrics */}
+        <div style={{
+          background: 'rgba(255,255,255,0.4)',
+          borderRadius: '16px',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          border: '1px solid rgba(0,0,0,0.03)',
+        }}>
+          {[
+            { label: language === 'ko' ? '어깨 각도' : 'Shoulder', value: angles.shoulder },
+            { label: language === 'ko' ? '팔꿈치 각도' : 'Elbow', value: angles.elbow },
+            { label: language === 'ko' ? '손목 각도' : 'Wrist', value: angles.wrist },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
+              <span style={{ color: display.color, fontWeight: 800, fontSize: '1.1rem' }}>{value.toFixed(1)}°</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '360px' }}>
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%', maxWidth: '380px', marginTop: 'auto', paddingBottom: '32px' }}>
         <button
           onClick={handleShare}
           disabled={sharing}
@@ -110,32 +120,35 @@ const Result = () => {
             background: 'var(--accent-color)',
             color: '#fff',
             border: 'none',
-            borderRadius: '12px',
-            padding: '14px',
-            fontSize: '16px',
-            fontWeight: 'bold',
+            borderRadius: '16px',
+            padding: '18px',
+            fontSize: '1rem',
+            fontWeight: 800,
             cursor: sharing ? 'default' : 'pointer',
-            opacity: sharing ? 0.7 : 1,
+            boxShadow: '0 4px 12px rgba(255, 159, 180, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
           }}
         >
-          {sharing
-            ? (language === 'ko' ? '공유 카드 생성 중...' : 'Creating card...')
-            : (language === 'ko' ? '결과 공유하기' : 'Share result')}
+          {sharing ? (language === 'ko' ? '생성 중...' : 'Processing...') : (language === 'ko' ? '결과 이미지 공유하기' : 'Share Result')}
         </button>
 
         <button
           onClick={() => navigate(ROUTES.CAMERA)}
           style={{
-            background: 'var(--panel-bg)',
-            color: 'var(--text-main)',
-            border: '1px solid var(--accent-color)',
-            borderRadius: '12px',
-            padding: '14px',
-            fontSize: '15px',
+            background: '#fff',
+            color: 'var(--accent-color)',
+            border: '2px solid var(--accent-color)',
+            borderRadius: '16px',
+            padding: '16px',
+            fontSize: '1rem',
+            fontWeight: 800,
             cursor: 'pointer',
           }}
         >
-          {language === 'ko' ? '다시 분석하기' : 'Analyze again'}
+          {language === 'ko' ? '다시 측정하기' : 'Try Again'}
         </button>
 
         <button
@@ -145,12 +158,12 @@ const Result = () => {
             color: 'var(--text-sub)',
             border: 'none',
             padding: '10px',
-            fontSize: '14px',
-            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 600,
             textDecoration: 'underline',
           }}
         >
-          {language === 'ko' ? '내 서브 기록 보기' : 'View my serve history'}
+          {language === 'ko' ? '내 서비스 기록 보기' : 'View History'}
         </button>
       </div>
     </div>

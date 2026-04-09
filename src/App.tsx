@@ -15,22 +15,26 @@ const App = () => {
   const language = useStore((state) => state.language);
   const setLanguage = useStore((state) => state.setLanguage);
 
-  // Apply dark mode
+  // CSS 변수 적용 — 3월 22일 소프트 핑크 테마 기반
   useEffect(() => {
-    console.log('App Version: 1.2.1 Loaded');
+    console.log('App Version: 1.2.2 Loaded');
     const root = document.documentElement;
     if (isDarkMode) {
-      root.style.setProperty('--bg-color', '#121212');
-      root.style.setProperty('--panel-bg', '#1e1e1e');
-      root.style.setProperty('--text-main', '#ffffff');
-      root.style.setProperty('--text-sub', '#a0a0a0');
-      root.style.setProperty('--accent-color', '#ff4081');
+      // 다크 모드도 핑크 계열 유지
+      root.style.setProperty('--bg-color', '#1a0f12');
+      root.style.setProperty('--panel-bg', 'rgba(255,255,255,0.06)');
+      root.style.setProperty('--card-border', 'rgba(255,159,180,0.15)');
+      root.style.setProperty('--text-main', '#f5e6ea');
+      root.style.setProperty('--text-sub', '#b09098');
+      root.style.setProperty('--accent-color', '#ff9fb4');
     } else {
-      root.style.setProperty('--bg-color', '#ffffff');
-      root.style.setProperty('--panel-bg', '#f5f5f5');
-      root.style.setProperty('--text-main', '#1a1a1a');
-      root.style.setProperty('--text-sub', '#666666');
-      root.style.setProperty('--accent-color', '#ff4081');
+      // 라이트 모드 — 소프트 핑크 테마 (index.html 기본값과 동일)
+      root.style.setProperty('--bg-color', 'linear-gradient(160deg, #fff5f7 0%, #fce8ed 50%, #f0f4ff 100%)');
+      root.style.setProperty('--panel-bg', 'rgba(255, 255, 255, 0.82)');
+      root.style.setProperty('--card-border', 'rgba(255, 159, 180, 0.25)');
+      root.style.setProperty('--text-main', '#2d1c22');
+      root.style.setProperty('--text-sub', '#8c6b74');
+      root.style.setProperty('--accent-color', '#ff9fb4');
     }
   }, [isDarkMode]);
 

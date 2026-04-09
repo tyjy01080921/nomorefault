@@ -9,8 +9,8 @@ const Home = () => {
   const language = useStore((state: AppState) => state.language);
   const isDarkMode = useStore((state: AppState) => state.isDarkMode);
 
-  const cardBg = isDarkMode ? 'rgba(255,255,255,0.04)' : '#f7f7f7';
-  const cardBorder = isDarkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)';
+  const cardBg = 'var(--panel-bg)';
+  const cardBorder = '1px solid var(--card-border)';
 
   const handleTripClick = () => {
     window.open('https://trip.tp.st/zZp8rL9H', '_blank');
@@ -20,11 +20,11 @@ const Home = () => {
     <div style={{ padding: '0 16px 40px', maxWidth: '480px', margin: '0 auto' }}>
       {/* Hero */}
       <div style={{ textAlign: 'center', padding: '32px 0 20px' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.6, margin: '0 0 12px' }}>
+        <h1 style={{ fontSize: '1.45rem', fontWeight: 800, lineHeight: 1.4, margin: '0 0 12px', color: 'var(--text-main)' }}>
           {language === 'ko' ? (
-            <>{'망설임 없는 서브, '}<span style={{ color: 'var(--accent-color)' }}>당신을 더욱 빛나게.</span></>
+            <>{'망설임 없는 서브, '}<br/><span style={{ color: 'var(--accent-color)' }}>당신을 더욱 빛나게.</span></>
           ) : (
-            <>{'Serve with confidence, '}<span style={{ color: 'var(--accent-color)' }}>shine brighter.</span></>
+            <>{'Serve with confidence, '}<br/><span style={{ color: 'var(--accent-color)' }}>shine brighter.</span></>
           )}
         </h1>
         <p style={{ color: 'var(--text-sub)', fontSize: '0.9rem', margin: '0 0 6px' }}>
@@ -39,22 +39,24 @@ const Home = () => {
       <div style={{
         background: cardBg,
         border: cardBorder,
-        borderRadius: '16px',
-        padding: '20px 24px',
-        marginBottom: '16px',
+        borderRadius: '20px',
+        padding: '24px',
+        marginBottom: '20px',
+        boxShadow: '0 8px 16px rgba(255, 159, 180, 0.1)',
+        backdropFilter: 'blur(10px)',
       }}>
-        <p style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 18px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '1.2rem' }}>💡</span> {language === 'ko' ? '사용 팁 (구글 크롬 브라우저에서 사용 권장)' : 'Tips (Google Chrome recommended)'}
+        <p style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 18px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-color)' }}>
+          <span style={{ fontSize: '1.2rem' }}>💡</span> {language === 'ko' ? '사용 팁 (구글 크롬 권장)' : 'Tips (Chrome recommended)'}
         </p>
         {([
-          { icon: <Smartphone size={16} color="var(--text-sub)"/>, ko: '선수의 전신이 화면에 모두 들어오게 촬영하세요', en: 'Capture the full body of the player' },
-          { icon: <Clock size={16} color="var(--text-sub)"/>, ko: '측면 90도 각도에서 촬영할수록 정확도가 높습니다', en: 'Side angle (90°) gives the best accuracy' },
-          { icon: <Ruler size={16} color="var(--text-sub)"/>, ko: '카메라를 최대한 수평으로 유지하세요 (기울기 자동 보정)', en: 'Keep the camera level (auto-correction available)' },
-          { icon: <Camera size={16} color="var(--text-sub)"/>, ko: '카메라 화면이 고정될수록 정확도가 올라갑니다.', en: 'Steadier camera means better accuracy.' },
+          { icon: <Smartphone size={16} color="var(--accent-color)"/>, ko: '선수의 전신이 화면에 모두 들어오게 촬영하세요', en: 'Capture the full body of the player' },
+          { icon: <Clock size={16} color="var(--accent-color)"/>, ko: '측면 90도 각도에서 촬영할수록 정확도가 높습니다', en: 'Side angle (90°) gives the best accuracy' },
+          { icon: <Ruler size={16} color="var(--accent-color)"/>, ko: '카메라를 최대한 수평으로 유지하세요 (기울기 자동 보정)', en: 'Keep the camera level (auto-correction available)' },
+          { icon: <Camera size={16} color="var(--accent-color)"/>, ko: '카메라 화면이 고정될수록 정확도가 올라갑니다.', en: 'Steadier camera means better accuracy.' },
         ] as const).map((tip, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: i < 3 ? '14px' : 0 }}>
-            <span style={{ flexShrink: 0, marginTop: '2px' }}>{tip.icon}</span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-sub)', lineHeight: 1.5 }}>{language === 'ko' ? tip.ko : tip.en}</span>
+            <span style={{ flexShrink: 0, marginTop: '2px', background: 'rgba(255, 159, 180, 0.1)', padding: '6px', borderRadius: '8px', display: 'flex' }}>{tip.icon}</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.5 }}>{language === 'ko' ? tip.ko : tip.en}</span>
           </div>
         ))}
       </div>
@@ -64,36 +66,36 @@ const Home = () => {
         onClick={handleTripClick}
         style={{
           width: '100%',
-          borderRadius: '8px',
+          borderRadius: '12px',
           background: 'linear-gradient(90deg, #1d40dc, #0076f6)',
-          padding: '12px 16px',
+          padding: '14px 18px',
           boxSizing: 'border-box',
-          marginBottom: '16px',
+          marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           cursor: 'pointer',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxShadow: '0 4px 12px rgba(29, 64, 220, 0.2)',
         }}>
         <div style={{ color: '#fff', textAlign: 'left', zIndex: 1 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '2px' }}>{language === 'ko' ? '시합 갈때 늘 쓰는 여행 어플' : 'Travel app for tournaments'}</div>
-          <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>{language === 'ko' ? '24시간 한국어 상담, 리워드 혜택, 젤리~ 예약 완료' : '24/7 support, rewards, quick booking'}</div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '2px' }}>{language === 'ko' ? '시합 갈때 늘 쓰는 여행 어플' : 'Travel app for tournaments'}</div>
+          <div style={{ fontSize: '0.7rem', opacity: 0.9 }}>{language === 'ko' ? '24시간 한국어 상담, 리워드 혜택, 예약 완료' : '24/7 support, rewards, quick booking'}</div>
         </div>
         <div style={{ 
           background: '#ffb900', 
           color: '#000', 
           fontSize: '0.75rem', 
-          fontWeight: 700, 
-          padding: '4px 8px', 
-          borderRadius: '4px', 
+          fontWeight: 800, 
+          padding: '5px 10px', 
+          borderRadius: '6px', 
           whiteSpace: 'nowrap',
           zIndex: 1
         }}>
-          Trip.com {language === 'ko' ? '더 알아보기' : 'Learn More'}
+          Trip.com
         </div>
-        {/* Subtle Santorini-like background decoration */}
-        <div style={{ position: 'absolute', right: -20, bottom: -10, opacity: 0.2, fontSize: '60px', pointerEvents: 'none' }}>🏙️</div>
+        <div style={{ position: 'absolute', right: -15, bottom: -10, opacity: 0.15, fontSize: '50px', pointerEvents: 'none' }}>✈️</div>
       </div>
 
       {/* Action: Live Recording */}
@@ -101,29 +103,36 @@ const Home = () => {
         onClick={() => navigate(ROUTES.CAMERA)}
         style={{
           width: '100%',
-          padding: '18px 20px',
-          background: 'transparent',
-          border: '1px solid rgba(255, 64, 129, 0.3)',
-          borderRadius: '16px',
+          padding: '20px',
+          background: '#fff',
+          border: '1px solid var(--card-border)',
+          borderRadius: '20px',
           color: 'var(--text-main)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          marginBottom: '12px',
+          marginBottom: '14px',
           boxSizing: 'border-box',
+          boxShadow: '0 4px 12px rgba(255, 159, 180, 0.15)',
+          transition: 'all 0.2s',
         }}
       >
         <span style={{
-          width: '44px', height: '44px', borderRadius: '50%',
-          background: 'rgba(255, 64, 129, 0.1)',
-          border: '1px solid var(--accent-color)',
+          width: '48px', height: '48px', borderRadius: '50%',
+          background: 'var(--accent-color)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
-        }}><Camera size={20} color="var(--accent-color)" /></span>
-        <span style={{ fontSize: '1rem', fontWeight: 700 }}>
-          {language === 'ko' ? '실시간 촬영' : 'Live Recording'}
-        </span>
+          boxShadow: '0 4px 8px rgba(255, 159, 180, 0.3)',
+        }}><Camera size={24} color="#fff" /></span>
+        <div style={{ textAlign: 'left' }}>
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', marginBottom: '2px', color: 'var(--accent-color)' }}>
+            {language === 'ko' ? '실시간 촬영' : 'Live Recording'}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+            {language === 'ko' ? '카메라로 직접 촬영하여 분석합니다' : 'Record and analyze with camera'}
+          </span>
+        </div>
       </button>
 
       {/* Action: Service Comparison */}
@@ -131,28 +140,30 @@ const Home = () => {
         onClick={() => navigate(ROUTES.ANALYSIS)}
         style={{
           width: '100%',
-          padding: '18px 20px',
-          background: 'transparent',
-          border: '1px solid rgba(255, 64, 129, 0.3)',
-          borderRadius: '16px',
+          padding: '20px',
+          background: '#fff',
+          border: '1px solid var(--card-border)',
+          borderRadius: '20px',
           color: 'var(--text-main)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          marginBottom: '28px',
+          marginBottom: '32px',
           boxSizing: 'border-box',
+          boxShadow: '0 4px 12px rgba(255, 159, 180, 0.15)',
+          transition: 'all 0.2s',
         }}
       >
         <span style={{
-          width: '44px', height: '44px', borderRadius: '50%',
-          background: 'rgba(255, 64, 129, 0.1)',
+          width: '48px', height: '48px', borderRadius: '50%',
+          background: 'rgba(255, 159, 180, 0.15)',
           border: '1px solid var(--accent-color)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
-        }}><RefreshCw size={20} color="var(--accent-color)" /></span>
+        }}><RefreshCw size={24} color="var(--accent-color)" /></span>
         <div style={{ textAlign: 'left' }}>
-          <span style={{ fontSize: '1rem', fontWeight: 700, display: 'block', marginBottom: '2px' }}>
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', marginBottom: '2px' }}>
             {language === 'ko' ? '서비스 비교 분석' : 'Service Comparison'}
           </span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
