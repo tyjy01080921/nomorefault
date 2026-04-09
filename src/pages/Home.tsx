@@ -61,41 +61,32 @@ const Home = () => {
         ))}
       </div>
 
-      {/* Ad Banner (Trip.com) */}
+      {/* Ad Banner Placeholder (Trip.com) */}
       <div 
         onClick={handleTripClick}
         style={{
           width: '100%',
-          borderRadius: '12px',
+          borderRadius: '8px',
           background: 'linear-gradient(90deg, #1d40dc, #0076f6)',
-          padding: '14px 18px',
+          padding: '12px 16px',
           boxSizing: 'border-box',
-          marginBottom: '20px',
+          marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          cursor: 'pointer',
-          position: 'relative',
-          overflow: 'hidden',
-          boxShadow: '0 4px 12px rgba(29, 64, 220, 0.2)',
+          cursor: 'pointer'
         }}>
-        <div style={{ color: '#fff', textAlign: 'left', zIndex: 1 }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '2px' }}>{language === 'ko' ? '시합 갈때 늘 쓰는 여행 어플' : 'Travel app for tournaments'}</div>
-          <div style={{ fontSize: '0.7rem', opacity: 0.9 }}>{language === 'ko' ? '24시간 한국어 상담, 리워드 혜택, 예약 완료' : '24/7 support, rewards, quick booking'}</div>
+        <div style={{ color: '#fff', textAlign: 'left' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '2px' }}>
+            {language === 'ko' ? '시합 갈때 늘 쓰는 여행 어플' : 'Travel app used for tournaments'}
+          </div>
+          <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>
+            {language === 'ko' ? '24시간 한국어 상담, 리워드 혜택, 젤리~ 예약 완료' : '24/7 support, rewards, quick booking'}
+          </div>
         </div>
-        <div style={{ 
-          background: '#ffb900', 
-          color: '#000', 
-          fontSize: '0.75rem', 
-          fontWeight: 800, 
-          padding: '5px 10px', 
-          borderRadius: '6px', 
-          whiteSpace: 'nowrap',
-          zIndex: 1
-        }}>
-          Trip.com
+        <div style={{ background: '#ffb900', color: '#000', fontSize: '0.75rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+          Trip.com {language === 'ko' ? '더 알아보기' : 'Learn More'}
         </div>
-        <div style={{ position: 'absolute', right: -15, bottom: -10, opacity: 0.15, fontSize: '50px', pointerEvents: 'none' }}>✈️</div>
       </div>
 
       {/* Action: Live Recording */}
@@ -210,7 +201,7 @@ const Home = () => {
             whiteSpace: 'nowrap',
           }}
         >
-          {language === 'ko' ? '문의' : 'Contact'}
+          {language === 'ko' ? '광고 문의' : 'Contact'}
         </a>
       </div>
 

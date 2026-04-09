@@ -115,6 +115,33 @@ const App = () => {
 
           {/* Right: Actions (Share + Language) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {useStore.getState().needRefresh && (
+               <button
+                 onClick={() => {
+                   const updateFn = useStore.getState().updateServiceWorker;
+                   if (updateFn) updateFn();
+                 }}
+                 style={{
+                   background: 'var(--accent-color)',
+                   border: 'none',
+                   borderRadius: '16px',
+                   color: '#fff',
+                   cursor: 'pointer',
+                   padding: '4px 8px',
+                   fontSize: '11px',
+                   fontWeight: 'bold',
+                   display: 'flex',
+                   alignItems: 'center',
+                   justifyContent: 'center',
+                   height: '24px',
+                   gap: '4px'
+                 }}
+               >
+                 <span>업데이트</span>
+                 <div style={{ background: '#FF453A', color: 'white', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>N</div>
+               </button>
+            )}
+
             <button
                onClick={copyUrlToClipboard}
                style={{

@@ -34,6 +34,12 @@ export interface AppState {
   // MediaPipe pose landmarks (set by animation loop, read by verdict calculation)
   poseLandmarks: any[] | null;
   setPoseLandmarks: (landmarks: any[] | null) => void;
+
+  // PWA Manual Update
+  needRefresh: boolean;
+  setNeedRefresh: (val: boolean) => void;
+  updateServiceWorker: (() => void) | null;
+  setUpdateServiceWorker: (fn: () => void) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -70,4 +76,10 @@ export const useStore = create<AppState>((set) => ({
   // MediaPipe pose landmarks
   poseLandmarks: null,
   setPoseLandmarks: (landmarks) => set({ poseLandmarks: landmarks }),
+
+  // PWA Manual Update
+  needRefresh: false,
+  setNeedRefresh: (val) => set({ needRefresh: val }),
+  updateServiceWorker: null,
+  setUpdateServiceWorker: (fn) => set({ updateServiceWorker: fn }),
 }));
