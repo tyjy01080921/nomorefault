@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES, VERDICT } from '../utils/constants';
 import { useStore } from '../store/useStore';
@@ -18,6 +18,8 @@ const VERDICT_DISPLAY = {
   [VERDICT.VAR_CHALLENGE]: { label: 'VAR ❓', color: '#FFD60A', sub: '재검토 필요' },
 };
 
+const DEFAULT_ANGLES = { shoulder: 0, elbow: 0, wrist: 0 };
+
 const Result = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,17 +27,20 @@ const Result = () => {
 
   const state = location.state as ResultState | null;
   const [sharing, setSharing] = useState(false);
+  const savedRef = useRef(false);
 
   const verdict = state?.verdict ?? VERDICT.VAR_CHALLENGE;
-  const angles = state?.angles ?? { shoulder: 0, elbow: 0, wrist: 0 };
+  const angles = state?.angles ?? DEFAULT_ANGLES;
   const timestamp = state?.timestamp ?? new Date().toISOString();
 
   const display = VERDICT_DISPLAY[verdict] ?? VERDICT_DISPLAY[VERDICT.VAR_CHALLENGE];
 
   // Auto-save to history on mount
   useEffect(() => {
+    if (savedRef.current) return;
+    savedRef.current = true;
     saveHistory({ date: timestamp, verdict, angles, note: '' });
-  }, []); // run once
+  }, [angles, timestamp, verdict]);
 
   const handleShare = async () => {
     setSharing(true);

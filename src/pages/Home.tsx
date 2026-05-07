@@ -1,4 +1,5 @@
-import React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
@@ -8,12 +9,57 @@ const Home = () => {
   const navigate = useNavigate();
   const language = useStore((state: AppState) => state.language);
   const isDarkMode = useStore((state: AppState) => state.isDarkMode);
+  const tripAdRef = useRef<HTMLDivElement>(null);
+  const [tripAdScale, setTripAdScale] = useState(1);
 
   const cardBg = 'var(--panel-bg)';
   const cardBorder = '1px solid var(--card-border)';
 
-  const handleTripClick = () => {
-    window.open('https://trip.tp.st/zZp8rL9H', '_blank');
+  useEffect(() => {
+    const updateTripAdScale = () => {
+      const width = tripAdRef.current?.clientWidth ?? 468;
+      setTripAdScale(Math.max(0.1, Math.min(1, width / 468)));
+    };
+
+    updateTripAdScale();
+
+    if (!tripAdRef.current || typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateTripAdScale);
+      return () => window.removeEventListener('resize', updateTripAdScale);
+    }
+
+    const observer = new ResizeObserver(updateTripAdScale);
+    observer.observe(tripAdRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const actionCardStyle: CSSProperties = {
+    width: '100%',
+    padding: '20px',
+    background: cardBg,
+    border: cardBorder,
+    borderRadius: '20px',
+    color: 'var(--text-main)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    boxSizing: 'border-box',
+    boxShadow: '0 4px 12px rgba(255, 159, 180, 0.15)',
+    transition: 'all 0.2s',
+    backdropFilter: 'blur(10px)',
+  };
+
+  const actionIconStyle: CSSProperties = {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    background: 'rgba(255, 159, 180, 0.15)',
+    border: '1px solid var(--accent-color)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   };
 
   return (
@@ -61,61 +107,43 @@ const Home = () => {
         ))}
       </div>
 
-      {/* Ad Banner Placeholder (Trip.com) */}
-      <div 
-        onClick={handleTripClick}
+      {/* Affiliate Ad Banner (Trip.com) */}
+      <div
+        ref={tripAdRef}
         style={{
           width: '100%',
+          overflow: 'hidden',
           borderRadius: '8px',
-          background: 'linear-gradient(90deg, #1d40dc, #0076f6)',
-          padding: '12px 16px',
-          boxSizing: 'border-box',
+          height: `${tripAdScale * 60}px`,
           marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer'
-        }}>
-        <div style={{ color: '#fff', textAlign: 'left' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '2px' }}>
-            {language === 'ko' ? '시합 갈때 늘 쓰는 여행 어플' : 'Travel app used for tournaments'}
-          </div>
-          <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>
-            {language === 'ko' ? '24시간 한국어 상담, 리워드 혜택, 젤리~ 예약 완료' : '24/7 support, rewards, quick booking'}
-          </div>
-        </div>
-        <div style={{ background: '#ffb900', color: '#000', fontSize: '0.75rem', fontWeight: 700, padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-          Trip.com {language === 'ko' ? '더 알아보기' : 'Learn More'}
-        </div>
+          background: cardBg,
+        }}
+      >
+        <iframe
+          src="https://kr.trip.com/partners/ad/SB13686962?Allianceid=7822879&SID=297886051&trip_sub1="
+          style={{
+            width: '468px',
+            height: '60px',
+            border: 'none',
+            display: 'block',
+            transformOrigin: 'left top',
+            transform: `scale(${tripAdScale})`,
+          }}
+          scrolling="no"
+          id="SB13686962"
+          title="제휴 광고"
+        />
       </div>
 
       {/* Action: Live Recording */}
       <button
         onClick={() => navigate(ROUTES.CAMERA)}
         style={{
-          width: '100%',
-          padding: '20px',
-          background: '#fff',
-          border: '1px solid var(--card-border)',
-          borderRadius: '20px',
-          color: 'var(--text-main)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
+          ...actionCardStyle,
           marginBottom: '14px',
-          boxSizing: 'border-box',
-          boxShadow: '0 4px 12px rgba(255, 159, 180, 0.15)',
-          transition: 'all 0.2s',
         }}
       >
-        <span style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          background: 'var(--accent-color)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-          boxShadow: '0 4px 8px rgba(255, 159, 180, 0.3)',
-        }}><Camera size={24} color="#fff" /></span>
+        <span style={actionIconStyle}><Camera size={24} color="var(--accent-color)" /></span>
         <div style={{ textAlign: 'left' }}>
           <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', marginBottom: '2px', color: 'var(--accent-color)' }}>
             {language === 'ko' ? '실시간 촬영' : 'Live Recording'}
@@ -130,31 +158,13 @@ const Home = () => {
       <button
         onClick={() => navigate(ROUTES.ANALYSIS)}
         style={{
-          width: '100%',
-          padding: '20px',
-          background: '#fff',
-          border: '1px solid var(--card-border)',
-          borderRadius: '20px',
-          color: 'var(--text-main)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
+          ...actionCardStyle,
           marginBottom: '32px',
-          boxSizing: 'border-box',
-          boxShadow: '0 4px 12px rgba(255, 159, 180, 0.15)',
-          transition: 'all 0.2s',
         }}
       >
-        <span style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          background: 'rgba(255, 159, 180, 0.15)',
-          border: '1px solid var(--accent-color)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}><RefreshCw size={24} color="var(--accent-color)" /></span>
+        <span style={actionIconStyle}><RefreshCw size={24} color="var(--accent-color)" /></span>
         <div style={{ textAlign: 'left' }}>
-          <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', marginBottom: '2px' }}>
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, display: 'block', marginBottom: '2px', color: 'var(--accent-color)' }}>
             {language === 'ko' ? '서비스 비교 분석' : 'Service Comparison'}
           </span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
@@ -224,7 +234,7 @@ const Home = () => {
       </div>
       {/* Copyright */}
       <div style={{ textAlign: 'center', marginTop: '16px', color: 'var(--text-sub)', fontSize: '0.6rem', lineHeight: '1.4' }}>
-        v1.2.1<br/>
+        v{__APP_VERSION__}<br/>
         ROUM S & E Co., Ltd.<br/>
         #117, 201 Hyangdong-ro, Deogyang-gu, Goyang-si, Gyeonggi-do, Rep. of Korea<br/>
         Copyright © 2026 ROUM S & E. All rights reserved.

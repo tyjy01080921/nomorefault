@@ -1,11 +1,13 @@
-import React from 'react'
+import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import App from './App'
+import { useStore } from './store/useStore'
 
 // ─── 버전 관리 ───────────────────────────────────────────────
 // 배포할 때마다 이 값을 바꾸면, 구형 캐시를 가진 브라우저가
 // 자동으로 새 버전을 감지하고 리로드합니다.
-const APP_VERSION = '1.2.3';
+const APP_VERSION = __APP_VERSION__;
 
 // ─── 1) 구형 좀비 SW 강제 해제 (1회성) ──────────────────────
 // 이전에 루트에 수동 배치된 sw.js 가 캐시에 남아 있을 수 있으므로
@@ -40,16 +42,11 @@ const APP_VERSION = '1.2.3';
 // 사용자의 데이터를 아끼기 위해 PWA 플러그인에 의해 브라우저가
 // 스스로 24시간이나 네비게이션 시점에 새 버전 유무를 확인하도록 맡깁니다.
 // 발견되면 UI에서 업데이트 배지를 표시할 수 있도록 store에 등록합니다.
-import { registerSW } from 'virtual:pwa-register';
-import { useStore } from './store/useStore';
-
 const updateSW = registerSW({
   onNeedRefresh() {
     console.log('[PWA] 새 버전 감지 — 사용자 컨펌 대기 중...');
     useStore.getState().setNeedRefresh(true);
-    useStore.getState().setUpdateServiceWorker(() => {
-      updateSW(true); // 호출 시 서비스 워커 교체 및 리로드 수행
-    });
+    useStore.getState().setUpdateServiceWorker(() => updateSW(true));
   },
   onOfflineReady() {
     console.log('[PWA] 오프라인 사용 준비 완료');
@@ -75,7 +72,7 @@ if (storedVersion && storedVersion !== APP_VERSION) {
 
 // ─── React 앱 마운트 ─────────────────────────────────────────
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+  <StrictMode>
     <App />
-  </React.StrictMode>,
+  </StrictMode>,
 )

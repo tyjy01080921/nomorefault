@@ -1,7 +1,12 @@
 import React from 'react';
 import { useStore, AppState } from '../store/useStore';
+import type { Point } from '../utils/videoCoordinates';
 
-const AnalysisWizard = () => {
+interface AnalysisWizardProps {
+  projectPoint?: (point: Point) => Point;
+}
+
+const AnalysisWizard = ({ projectPoint = (point) => point }: AnalysisWizardProps) => {
   const {
     wizardStep,
     setWizardStep,
@@ -11,8 +16,6 @@ const AnalysisWizard = () => {
     shuttlecockPos,
     language,
   } = useStore((state: AppState) => state);
-
-  const [isAdjusting, setIsAdjusting] = React.useState(false);
 
   if (wizardStep === 0) return null;
 
@@ -33,6 +36,11 @@ const AnalysisWizard = () => {
     backdropFilter: 'blur(15px)',
   };
 
+  const projectedNetBase = netBase ? projectPoint(netBase) : null;
+  const projectedNetTop = netTop ? projectPoint(netTop) : null;
+  const projectedGround = ground ? projectPoint(ground) : null;
+  const projectedShuttlecock = shuttlecockPos ? projectPoint(shuttlecockPos) : null;
+
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 35, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       
@@ -42,20 +50,20 @@ const AnalysisWizard = () => {
       )}
 
       {/* Point Overlays */}
-      {netBase !== null && (wizardStep >= 2) && (
-        <div style={{ position: 'absolute', top: `${netBase.y * 100}%`, left: `${netBase.x * 100}%`, width: 14, height: 14, background: '#FF453A', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
+      {projectedNetBase !== null && (wizardStep >= 2) && (
+        <div style={{ position: 'absolute', top: `${projectedNetBase.y * 100}%`, left: `${projectedNetBase.x * 100}%`, width: 14, height: 14, background: '#FF453A', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
       )}
 
-      {netTop !== null && (wizardStep >= 3) && (
-        <div style={{ position: 'absolute', top: `${netTop.y * 100}%`, left: `${netTop.x * 100}%`, width: 14, height: 14, background: '#32ADE6', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
+      {projectedNetTop !== null && (wizardStep >= 3) && (
+        <div style={{ position: 'absolute', top: `${projectedNetTop.y * 100}%`, left: `${projectedNetTop.x * 100}%`, width: 14, height: 14, background: '#32ADE6', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
       )}
 
-      {ground !== null && (wizardStep >= 4) && (
-        <div style={{ position: 'absolute', top: `${ground.y * 100}%`, left: `${ground.x * 100}%`, width: 14, height: 14, background: '#30D158', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
+      {projectedGround !== null && (wizardStep >= 4) && (
+        <div style={{ position: 'absolute', top: `${projectedGround.y * 100}%`, left: `${projectedGround.x * 100}%`, width: 14, height: 14, background: '#30D158', borderRadius: '50%', transform: 'translate(-50%, -50%)', border: '3px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.4)', zIndex: 50 }} />
       )}
 
-      {shuttlecockPos !== null && (wizardStep >= 6) && (
-        <div style={{ position: 'absolute', top: `${shuttlecockPos.y * 100}%`, left: `${shuttlecockPos.x * 100}%`, width: 18, height: 18, background: 'rgba(255, 159, 180, 0.4)', borderRadius: '50%', border: '2px solid var(--accent-color)', transform: 'translate(-50%, -50%)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {projectedShuttlecock !== null && (wizardStep >= 6) && (
+        <div style={{ position: 'absolute', top: `${projectedShuttlecock.y * 100}%`, left: `${projectedShuttlecock.x * 100}%`, width: 18, height: 18, background: 'rgba(255, 159, 180, 0.4)', borderRadius: '50%', border: '2px solid var(--accent-color)', transform: 'translate(-50%, -50%)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
            <div style={{ width: 6, height: 6, background: 'var(--accent-color)', borderRadius: '50%' }} />
         </div>
       )}

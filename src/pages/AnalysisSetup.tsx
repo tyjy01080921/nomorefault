@@ -1,14 +1,23 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
-import AnalysisWizard from '../components/AnalysisWizard';
 import { getPoseLandmarker, drawSkeleton } from '../services/mediapipe';
 import { calculateVerdict } from '../utils/verdict';
 
 const AnalysisSetup = () => {
   const navigate = useNavigate();
-  const { videoFile, setVideoFile, wizardStep, setWizardStep, shuttlecockPos, setShuttlecockPos, netBase, netTop, ground, poseLandmarks, setPoseLandmarks, language } = useStore((state: AppState) => state);
+  const {
+    videoFile,
+    shuttlecockPos,
+    netBase,
+    netTop,
+    ground,
+    poseLandmarks,
+    setPoseLandmarks,
+    language,
+  } = useStore((state: AppState) => state);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,26 +32,65 @@ const AnalysisSetup = () => {
   );
   useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
+  useEffect(() => {
+    if (!videoFile) {
+      navigate(ROUTES.CAMERA, { replace: true });
+    }
+  }, [navigate, videoFile]);
+
+  const seekTo = useCallback((time: number) => {
+    const nextTime = Math.max(0, Math.min(duration || 0, time));
+    setCurrentTime(nextTime);
     if (videoRef.current) {
-      videoRef.current.currentTime = time;
+      videoRef.current.currentTime = nextTime;
+    }
+  }, [duration]);
+
+  const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    seekTo(time);
+  };
+
+  const captureFrameSnapshot = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) return undefined;
+
+    const snapshotCanvas = document.createElement('canvas');
+    snapshotCanvas.width = video.videoWidth;
+    snapshotCanvas.height = video.videoHeight;
+    const ctx = snapshotCanvas.getContext('2d');
+    if (!ctx) return undefined;
+
+    ctx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+    return snapshotCanvas.toDataURL('image/png');
+  }, []);
+
+  const handleLoadedMetadata = () => {
+    const nextDuration = videoRef.current?.duration || 1;
+    const nextTime = Math.min(currentTime, nextDuration);
+    setDuration(nextDuration);
+    setCurrentTime(nextTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = nextTime;
     }
   };
 
   useEffect(() => {
+    if (!videoUrl) return;
+    let isProcessing = false;
+
     const processFrame = async () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (!video || !canvas || video.readyState < 2) return;
-
-      if (canvas.width !== video.videoWidth) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      }
+      if (!video || !canvas || video.readyState < 2 || isProcessing) return;
+      isProcessing = true;
 
       try {
+        if (canvas.width !== video.videoWidth) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+
         const poseLandmarker = await getPoseLandmarker();
         const results = poseLandmarker.detectForVideo(video, performance.now());
         
@@ -55,13 +103,15 @@ const AnalysisSetup = () => {
           }
         }
       } catch (e) {
-        // Silent catch for frame processing
+        console.warn('[analysis] frame processing failed', e);
+      } finally {
+        isProcessing = false;
       }
     };
     
     const interval = setInterval(processFrame, 100);
     return () => clearInterval(interval);
-  }, []);
+  }, [setPoseLandmarks, videoUrl]);
 
   const handleStartAnalysis = () => {
     setIsAnalyzing(true);
@@ -78,6 +128,7 @@ const AnalysisSetup = () => {
         state: {
           verdict,
           angles,
+          frameSnapshot: captureFrameSnapshot(),
           timestamp: new Date().toISOString(),
         },
       });
@@ -105,7 +156,7 @@ const AnalysisSetup = () => {
             src={videoUrl}
             playsInline
             muted
-            onLoadedMetadata={() => setDuration(videoRef.current?.duration || 1)}
+            onLoadedMetadata={handleLoadedMetadata}
             style={{ width: '100%', maxHeight: '50vh', display: 'block' }}
           />
           <canvas 
@@ -139,8 +190,8 @@ const AnalysisSetup = () => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-            <button onClick={() => setCurrentTime(Math.max(0, currentTime - 0.03))} style={{ padding: '8px 16px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.8rem' }}>- 1프레임</button>
-            <button onClick={() => setCurrentTime(Math.min(duration, currentTime + 0.03))} style={{ padding: '8px 16px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.8rem' }}>+ 1프레임</button>
+            <button onClick={() => seekTo(currentTime - 0.03)} style={{ padding: '8px 16px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.8rem' }}>- 1프레임</button>
+            <button onClick={() => seekTo(currentTime + 0.03)} style={{ padding: '8px 16px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.8rem' }}>+ 1프레임</button>
           </div>
         </div>
 

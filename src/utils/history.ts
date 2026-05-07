@@ -28,7 +28,9 @@ export function saveHistory(entry: Omit<HistoryEntry, 'id'>): void {
     const existing = loadHistory();
     const newEntry: HistoryEntry = {
       ...entry,
-      id: crypto.randomUUID(),
+      id: typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `nmf_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     };
     existing.push(newEntry);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(existing));

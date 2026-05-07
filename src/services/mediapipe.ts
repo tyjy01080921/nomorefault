@@ -1,4 +1,5 @@
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import type { PoseLandmark } from '../utils/pose';
 
 let poseLandmarkerInstance: PoseLandmarker | null = null;
 let isInitializing = false;
@@ -9,7 +10,7 @@ export const getPoseLandmarker = async (): Promise<PoseLandmarker> => {
   if (isInitializing && initPromise) return initPromise;
 
   isInitializing = true;
-  initPromise = new Promise(async (resolve, reject) => {
+  initPromise = (async () => {
     try {
       const vision = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
@@ -22,14 +23,14 @@ export const getPoseLandmarker = async (): Promise<PoseLandmarker> => {
         runningMode: 'VIDEO',
         numPoses: 1,
       });
-      resolve(poseLandmarkerInstance);
+      return poseLandmarkerInstance;
     } catch (e) {
       console.error('Failed to initialize PoseLandmarker', e);
-      reject(e);
+      throw e;
     } finally {
       isInitializing = false;
     }
-  });
+  })();
 
   return initPromise;
 };
@@ -37,7 +38,7 @@ export const getPoseLandmarker = async (): Promise<PoseLandmarker> => {
 // Simple skeleton drawing utility
 export const drawSkeleton = (
   ctx: CanvasRenderingContext2D,
-  landmarks: any[],
+  landmarks: PoseLandmark[],
   width: number,
   height: number,
   isAdjusting = false,

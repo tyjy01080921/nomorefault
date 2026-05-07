@@ -1,2 +1,7 @@
 node_modules
 .gstack/
+.vite/
+.playwright-mcp/
+.DS_Store
+**/.DS_Store
+npm-debug.log*

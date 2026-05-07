@@ -1,18 +1,19 @@
 import { BWF, VERDICT, POSE_KEYPOINTS } from './constants';
 import { angleBetween } from './angles';
+import type { PoseLandmark } from './pose';
 
-interface Coord {
+export interface Coord {
   x: number;
   y: number;
 }
 
-interface CalibrationPoints {
+export interface CalibrationPoints {
   netBase: Coord;  // bottom of net post (normalized 0-1)
   netTop: Coord;   // top of net post (normalized 0-1)
   ground: Coord;   // ground level at server position (normalized 0-1)
 }
 
-interface VerdictResult {
+export interface VerdictResult {
   verdict: string;
   shuttlecockHeightM: number;
   angles: { shoulder: number; elbow: number; wrist: number };
@@ -29,7 +30,7 @@ interface VerdictResult {
 export function calculateVerdict(
   calibration: CalibrationPoints,
   shuttlecockPos: Coord,
-  landmarks: any[] | null
+  landmarks: PoseLandmark[] | null
 ): VerdictResult {
   const angles = extractAngles(landmarks);
 
@@ -58,7 +59,7 @@ export function calculateVerdict(
   return { verdict, shuttlecockHeightM, angles };
 }
 
-function extractAngles(landmarks: any[] | null): {
+function extractAngles(landmarks: PoseLandmark[] | null): {
   shoulder: number;
   elbow: number;
   wrist: number;

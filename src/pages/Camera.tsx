@@ -1,29 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent, TouchEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
 import AnalysisWizard from '../components/AnalysisWizard';
 import { Square, ArrowLeft, RotateCcw } from 'lucide-react';
+import { containerPointToVideoPoint, videoPointToContainerPoint } from '../utils/videoCoordinates';
 
 const Camera = () => {
   const navigate = useNavigate();
-  const { 
-    setVideoFile, 
-    wizardStep, 
-    setWizardStep, 
-    netBase, 
-    setNetBase, 
-    netTop, 
-    setNetTop, 
-    ground, 
-    setGround, 
-    shuttlecockPos, 
-    setShuttlecockPos 
+  const {
+    setVideoFile,
+    wizardStep,
+    setWizardStep,
+    setNetBase,
+    setNetTop,
+    setGround,
+    setShuttlecockPos,
   } = useStore((state: AppState) => state);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunks = useRef<BlobPart[]>([]);
+  const previewUrlRef = useRef<string | null>(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [pitchDeg, setPitchDeg] = useState(0); 
@@ -31,24 +31,53 @@ const Camera = () => {
   const [showARLine, setShowARLine] = useState(true);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
 
+  const releasePreviewUrl = useCallback(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+  }, []);
+
+  const stopCameraStream = useCallback(() => {
+    const stream = videoRef.current?.srcObject as MediaStream | null;
+    stream?.getTracks().forEach((track) => track.stop());
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const getRecordingMimeType = () => {
+    const candidates = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4',
+    ];
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type));
+  };
+
   const toggleRecording = () => {
-    if (!isRecording) {
-      if (videoRef.current && videoRef.current.srcObject) {
-        try {
-          const stream = videoRef.current.srcObject as MediaStream;
-          const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-          mediaRecorderRef.current = recorder;
-          recordedChunks.current = [];
+	    if (!isRecording) {
+	      if (videoRef.current && videoRef.current.srcObject) {
+	        try {
+	          const stream = videoRef.current.srcObject as MediaStream;
+	          const mimeType = getRecordingMimeType();
+	          const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+	          mediaRecorderRef.current = recorder;
+	          recordedChunks.current = [];
           recorder.ondataavailable = (e) => {
             if (e.data && e.data.size > 0) recordedChunks.current.push(e.data);
           };
-          recorder.onstop = () => {
-            const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
-            setVideoPreviewUrl(url);
-            const file = new File([blob], `nomorefault_record_${Date.now()}.webm`, { type: 'video/webm' });
-            setVideoFile(file);
-          };
+	          recorder.onstop = () => {
+	            const type = recorder.mimeType || 'video/webm';
+	            const blob = new Blob(recordedChunks.current, { type });
+	            const url = URL.createObjectURL(blob);
+	            releasePreviewUrl();
+	            previewUrlRef.current = url;
+	            setVideoPreviewUrl(url);
+	            const extension = type.includes('mp4') ? 'mp4' : 'webm';
+	            const file = new File([blob], `nomorefault_record_${Date.now()}.${extension}`, { type });
+	            setVideoFile(file);
+	            stopCameraStream();
+	          };
           recorder.start();
           setIsRecording(true);
         } catch (e) {
@@ -66,21 +95,23 @@ const Camera = () => {
   };
 
   const handleRetry = () => {
+    releasePreviewUrl();
     setVideoPreviewUrl(null);
     setVideoFile(null);
     // Restart camera if stopped
     startCamera();
   };
 
-  const startCamera = () => {
+  const startCamera = useCallback(() => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      stopCameraStream();
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(stream => {
           if (videoRef.current) videoRef.current.srcObject = stream;
         })
         .catch(err => console.error("Camera error:", err));
     }
-  };
+  }, [stopCameraStream]);
 
   useEffect(() => {
     startCamera();
@@ -107,13 +138,12 @@ const Camera = () => {
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation);
       setWizardStep(0);
-      if (videoRef.current && videoRef.current.srcObject) {
-          (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-      }
+      stopCameraStream();
+      releasePreviewUrl();
     };
-  }, []);
+  }, [releasePreviewUrl, setWizardStep, startCamera, stopCameraStream]);
 
-  const handleCanvasTouch = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleCanvasTouch = (e: MouseEvent | TouchEvent) => {
     if (wizardStep === 0 || wizardStep === 1 || wizardStep === 5) return;
 
     // AnalysisWizard의 dot 포지셔닝은 video-viewport div 기준(100%×100%)이므로,
@@ -123,20 +153,47 @@ const Camera = () => {
 
     const clientX = 'touches' in e
       ? e.touches[0].clientX
-      : (e as React.MouseEvent).clientX;
+      : (e as MouseEvent).clientX;
     const clientY = 'touches' in e
       ? e.touches[0].clientY
-      : (e as React.MouseEvent).clientY;
+      : (e as MouseEvent).clientY;
 
     // 0~1 사이 정규화 좌표 (컨테이너 기준)
-    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const video = videoRef.current;
+    const point = video && video.videoWidth > 0 && video.videoHeight > 0
+      ? containerPointToVideoPoint(
+          { x: clientX, y: clientY },
+          rect,
+          video.videoWidth,
+          video.videoHeight,
+          'cover',
+        )
+      : {
+          x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+          y: Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)),
+        };
 
-    if (wizardStep === 2) setNetBase(y, x);
-    else if (wizardStep === 3) setNetTop(y, x);
-    else if (wizardStep === 4) setGround(y, x);
-    else if (wizardStep === 6) setShuttlecockPos({ x, y });
+    if (wizardStep === 2) setNetBase(point.y, point.x);
+    else if (wizardStep === 3) setNetTop(point.y, point.x);
+    else if (wizardStep === 4) setGround(point.y, point.x);
+    else if (wizardStep === 6) setShuttlecockPos(point);
   };
+
+  const projectVideoPoint = useCallback((point: { x: number; y: number }) => {
+    const viewport = viewportRef.current;
+    const video = videoRef.current;
+    if (!viewport || !video || video.videoWidth <= 0 || video.videoHeight <= 0) return point;
+
+    const rect = viewport.getBoundingClientRect();
+    return videoPointToContainerPoint(
+      point,
+      rect.width,
+      rect.height,
+      video.videoWidth,
+      video.videoHeight,
+      'cover',
+    );
+  }, []);
 
   return (
     <div className="camera-container" style={{ background: '#000', height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -164,11 +221,12 @@ const Camera = () => {
         </button>
       </div>
 
-      <div className="video-viewport" 
-           onClick={handleCanvasTouch}
+		      <div className="video-viewport"
+	           ref={viewportRef}
+	           onClick={handleCanvasTouch}
            onTouchStart={handleCanvasTouch}
            style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        
+
         {videoPreviewUrl ? (
           <video 
             src={videoPreviewUrl}
@@ -188,7 +246,7 @@ const Camera = () => {
         )}
         
         {/* Wizard UI */}
-        {!videoPreviewUrl && <AnalysisWizard />}
+	        {!videoPreviewUrl && <AnalysisWizard projectPoint={projectVideoPoint} />}
 
         {/* AR Level Line */}
         {showARLine && !videoPreviewUrl && (

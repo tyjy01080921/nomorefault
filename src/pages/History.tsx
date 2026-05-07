@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES, VERDICT } from '../utils/constants';
 import { useStore } from '../store/useStore';
@@ -212,7 +212,7 @@ const History = () => {
           const isSelected = selected.has(entry.id);
 
           return (
-            <React.Fragment key={entry.id}>
+            <Fragment key={entry.id}>
               <div
                 onClick={() => shareMode && toggleSelect(entry.id)}
                 style={{
@@ -288,7 +288,7 @@ const History = () => {
                   광고
                 </div>
               )}
-            </React.Fragment>
+            </Fragment>
           );
         })}
       </div>

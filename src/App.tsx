@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import type { CSSProperties } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ROUTES } from './utils/constants';
 import Home from './pages/Home';
 import Camera from './pages/Camera';
@@ -14,10 +15,12 @@ const App = () => {
   const setIsDarkMode = useStore((state) => state.setIsDarkMode);
   const language = useStore((state) => state.language);
   const setLanguage = useStore((state) => state.setLanguage);
+  const needRefresh = useStore((state) => state.needRefresh);
+  const updateServiceWorker = useStore((state) => state.updateServiceWorker);
 
   // CSS 변수 적용 — 3월 22일 소프트 핑크 테마 기반
   useEffect(() => {
-    console.log('App Version: 1.2.2 Loaded');
+    console.log(`App Version: ${__APP_VERSION__} Loaded`);
     const root = document.documentElement;
     if (isDarkMode) {
       // 다크 모드도 핑크 계열 유지
@@ -47,6 +50,36 @@ const App = () => {
     }
   };
 
+  const headerRoundButtonStyle: CSSProperties = {
+    background: 'rgba(255, 159, 180, 0.08)',
+    border: '1px solid var(--card-border)',
+    borderRadius: '50%',
+    color: 'var(--accent-color)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '32px',
+    height: '32px',
+  };
+
+  const headerPillButtonStyle: CSSProperties = {
+    background: 'rgba(255, 159, 180, 0.08)',
+    border: '1px solid var(--card-border)',
+    color: 'var(--accent-color)',
+    cursor: 'pointer',
+    padding: '0 10px',
+    borderRadius: '16px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '32px',
+    gap: '4px',
+    minWidth: '40px'
+  };
+
   return (
     <Router>
       <div style={{ background: 'var(--bg-color)', color: 'var(--text-main)', minHeight: '100vh', transition: 'background-color 0.3s, color 0.3s' }}>
@@ -71,21 +104,10 @@ const App = () => {
           {/* Left: Dark mode toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--text-sub)',
-              borderRadius: '50%',
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '32px',
-              height: '32px',
-            }}
+            style={headerRoundButtonStyle}
             title={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
           >
-            {isDarkMode ? <Sun size={16} color="var(--text-main)" /> : <Moon size={16} color="var(--text-main)" />}
+            {isDarkMode ? <Sun size={16} color="var(--accent-color)" /> : <Moon size={16} color="var(--accent-color)" />}
           </button>
 
           {/* Center: Title */}
@@ -115,47 +137,35 @@ const App = () => {
 
           {/* Right: Actions (Share + Language) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {useStore.getState().needRefresh && (
-               <button
-                 onClick={() => {
-                   const updateFn = useStore.getState().updateServiceWorker;
-                   if (updateFn) updateFn();
-                 }}
-                 style={{
-                   background: 'var(--accent-color)',
-                   border: 'none',
-                   borderRadius: '16px',
-                   color: '#fff',
-                   cursor: 'pointer',
-                   padding: '4px 8px',
-                   fontSize: '11px',
-                   fontWeight: 'bold',
-                   display: 'flex',
-                   alignItems: 'center',
-                   justifyContent: 'center',
-                   height: '24px',
-                   gap: '4px'
-                 }}
-               >
-                 <span>업데이트</span>
-                 <div style={{ background: '#FF453A', color: 'white', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>N</div>
-               </button>
+            {needRefresh && (
+              <button
+                onClick={() => {
+                  if (updateServiceWorker) updateServiceWorker();
+                }}
+                style={{
+                  background: 'var(--accent-color)',
+                  border: 'none',
+                  borderRadius: '16px',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '24px',
+                  gap: '4px'
+                }}
+              >
+                <span>업데이트</span>
+                <div style={{ background: '#FF453A', color: 'white', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>N</div>
+              </button>
             )}
 
             <button
                onClick={copyUrlToClipboard}
-               style={{
-                 background: 'transparent',
-                 border: '1px solid var(--text-sub)',
-                 borderRadius: '50%',
-                 color: 'var(--text-main)',
-                 cursor: 'pointer',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center',
-                 width: '32px',
-                 height: '32px',
-               }}
+               style={headerRoundButtonStyle}
                title={language === 'ko' ? '공유하기' : 'Share'}
              >
                <Link size={14} />
@@ -163,22 +173,7 @@ const App = () => {
 
             <button
               onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--text-sub)',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                padding: '0 10px',
-                borderRadius: '16px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '32px',
-                gap: '4px',
-                minWidth: '40px'
-              }}
+              style={headerPillButtonStyle}
             >
               <Globe size={14} />
               {language === 'ko' ? 'EN' : 'KO'}

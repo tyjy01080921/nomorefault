@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { PoseLandmark } from '../utils/pose';
 
 export interface AppState {
   // Video file
@@ -32,8 +33,8 @@ export interface AppState {
   setLanguage: (lang: 'ko' | 'en') => void;
 
   // MediaPipe pose landmarks (set by animation loop, read by verdict calculation)
-  poseLandmarks: any[] | null;
-  setPoseLandmarks: (landmarks: any[] | null) => void;
+  poseLandmarks: PoseLandmark[] | null;
+  setPoseLandmarks: (landmarks: PoseLandmark[] | null) => void;
 
   // PWA Manual Update
   needRefresh: boolean;
