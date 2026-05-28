@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
-import { Smartphone, Clock, Ruler, Camera, RefreshCw } from 'lucide-react';
+import { Check, Copy, Mail, Smartphone, Clock, Ruler, Camera, RefreshCw, X } from 'lucide-react';
+
+const CONTACT_EMAIL = 'roumsne@gmail.com';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -11,6 +13,8 @@ const Home = () => {
   const isDarkMode = useStore((state: AppState) => state.isDarkMode);
   const tripAdRef = useRef<HTMLDivElement>(null);
   const [tripAdScale, setTripAdScale] = useState(1);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [hasCopiedEmail, setHasCopiedEmail] = useState(false);
 
   const cardBg = 'var(--panel-bg)';
   const cardBorder = '1px solid var(--card-border)';
@@ -32,6 +36,41 @@ const Home = () => {
     observer.observe(tripAdRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!isContactOpen) {
+      setHasCopiedEmail(false);
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsContactOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isContactOpen]);
+
+  const copyEmailToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT_EMAIL);
+      setHasCopiedEmail(true);
+      return;
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = CONTACT_EMAIL;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const didCopy = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setHasCopiedEmail(didCopy);
+    }
+  };
 
   const actionCardStyle: CSSProperties = {
     width: '100%',
@@ -173,47 +212,136 @@ const Home = () => {
         </div>
       </button>
 
-      {/* Footer: BWF Simulator + AMA Logo + Contact */}
+      {/* Footer: AMA Logo + Contact */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '28px', flexWrap: 'wrap' }}>
-        <a
-          href="https://bwf-service-fault.web.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            padding: '4px 12px',
-            border: '1px solid var(--accent-color)',
-            borderRadius: '24px',
-            color: 'var(--accent-color)',
-            textDecoration: 'none',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          BWF {language === 'ko' ? '시뮬레이터' : 'Simulator'}
-        </a>
-
         <img
           src={isDarkMode ? '/images/amafulllogowhite2tone-BitFIM0A.png' : '/images/ama_full_logo_navy_skyblue_2tone-0oR0cdhq.jpg'}
           alt="AMA - Athlete Meets Artisans"
           style={{ height: '28px', objectFit: 'contain' }}
         />
 
-        <a
-          href="mailto:contact@nomorefault.com"
+        <button
+          type="button"
+          onClick={() => setIsContactOpen(true)}
           style={{
             padding: '4px 12px',
             border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)'}`,
             borderRadius: '24px',
+            background: 'transparent',
             color: 'var(--text-sub)',
-            textDecoration: 'none',
             fontSize: '0.75rem',
             whiteSpace: 'nowrap',
+            cursor: 'pointer',
           }}
         >
           {language === 'ko' ? '광고 문의' : 'Contact'}
-        </a>
+        </button>
       </div>
+
+      {isContactOpen && (
+        <div
+          role="presentation"
+          onClick={() => setIsContactOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(100%, 360px)',
+              background: isDarkMode ? '#24161a' : '#fff',
+              border: cardBorder,
+              borderRadius: '20px',
+              boxShadow: '0 20px 48px rgba(0,0,0,0.28)',
+              padding: '20px',
+              color: 'var(--text-main)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ ...actionIconStyle, width: '40px', height: '40px' }}>
+                  <Mail size={20} color="var(--accent-color)" />
+                </span>
+                <h2 id="contact-dialog-title" style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>
+                  {language === 'ko' ? '광고 문의' : 'Contact'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsContactOpen(false)}
+                aria-label={language === 'ko' ? '닫기' : 'Close'}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: '1px solid var(--card-border)',
+                  background: 'transparent',
+                  color: 'var(--text-sub)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: '14px',
+                borderRadius: '14px',
+                border: '1px solid var(--card-border)',
+                background: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(255, 159, 180, 0.08)',
+                fontWeight: 800,
+                fontSize: '1rem',
+                textAlign: 'center',
+                wordBreak: 'break-all',
+                marginBottom: '14px',
+              }}
+            >
+              {CONTACT_EMAIL}
+            </div>
+
+            <button
+              type="button"
+              onClick={copyEmailToClipboard}
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                borderRadius: '14px',
+                border: 'none',
+                background: 'var(--accent-color)',
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              {hasCopiedEmail ? <Check size={18} /> : <Copy size={18} />}
+              {hasCopiedEmail
+                ? (language === 'ko' ? '복사됨' : 'Copied')
+                : (language === 'ko' ? '복사하기' : 'Copy')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Gallery */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
