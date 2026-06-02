@@ -8,6 +8,8 @@ import { useStore } from './store/useStore'
 // 배포할 때마다 이 값을 바꾸면, 구형 캐시를 가진 브라우저가
 // 자동으로 새 버전을 감지하고 리로드합니다.
 const APP_VERSION = __APP_VERSION__;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const MIN_UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 // ─── 1) 구형 좀비 SW 강제 해제 (1회성) ──────────────────────
 // 이전에 루트에 수동 배치된 sw.js 가 캐시에 남아 있을 수 있으므로
@@ -39,19 +41,40 @@ const APP_VERSION = __APP_VERSION__;
 })();
 
 // ─── 2) PWA 수동 업데이트 등록 ───────────────────────────────
-// 사용자의 데이터를 아끼기 위해 PWA 플러그인에 의해 브라우저가
-// 스스로 24시간이나 네비게이션 시점에 새 버전 유무를 확인하도록 맡깁니다.
-// 발견되면 UI에서 업데이트 배지를 표시할 수 있도록 store에 등록합니다.
+// 새 버전이 waiting 상태가 되면 UI에서 업데이트 배너를 표시합니다.
+// 사용자가 버튼을 누르면 updateSW(true)가 새 SW를 활성화하고 reload합니다.
 const updateSW = registerSW({
   onNeedRefresh() {
     console.log('[PWA] 새 버전 감지 — 사용자 컨펌 대기 중...');
     useStore.getState().setNeedRefresh(true);
     useStore.getState().setUpdateServiceWorker(() => updateSW(true));
   },
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+
+    let lastUpdateCheck = 0;
+    const checkForUpdates = () => {
+      const now = Date.now();
+      if (now - lastUpdateCheck < MIN_UPDATE_CHECK_INTERVAL_MS) return;
+
+      lastUpdateCheck = now;
+      registration.update().catch((error) => {
+        console.warn('[PWA] 업데이트 확인 실패:', error);
+      });
+    };
+
+    window.setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
+    window.addEventListener('focus', checkForUpdates);
+    window.addEventListener('online', checkForUpdates);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkForUpdates();
+    });
+
+    checkForUpdates();
+  },
   onOfflineReady() {
     console.log('[PWA] 오프라인 사용 준비 완료');
   },
-  // 서버 폴링(setInterval) 삭제: 데이터/배터리 절약
 });
 
 // ─── 3) 버전 변경 시 강제 리로드 (SW 없는 환경 대비) ─────────

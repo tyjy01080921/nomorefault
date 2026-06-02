@@ -39,8 +39,8 @@ export interface AppState {
   // PWA Manual Update
   needRefresh: boolean;
   setNeedRefresh: (val: boolean) => void;
-  updateServiceWorker: (() => void) | null;
-  setUpdateServiceWorker: (fn: () => void) => void;
+  updateServiceWorker: (() => void | Promise<void>) | null;
+  setUpdateServiceWorker: (fn: () => void | Promise<void>) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
