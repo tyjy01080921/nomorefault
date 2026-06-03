@@ -177,6 +177,8 @@ const Home = () => {
           scrolling="no"
           id="SB13686962"
           title="제휴 광고"
+          loading="lazy"
+          allow="geolocation 'none'; camera 'none'; microphone 'none'; payment 'none'"
         />
       </div>
 
