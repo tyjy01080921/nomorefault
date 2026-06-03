@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
@@ -37,21 +37,27 @@ const Home = () => {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!isContactOpen) {
-      setHasCopiedEmail(false);
-      return;
-    }
+  const openContactDialog = useCallback(() => {
+    setHasCopiedEmail(false);
+    setIsContactOpen(true);
+  }, []);
 
+  const closeContactDialog = useCallback(() => {
+    setIsContactOpen(false);
+    setHasCopiedEmail(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isContactOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsContactOpen(false);
+        closeContactDialog();
       }
     };
 
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isContactOpen]);
+  }, [closeContactDialog, isContactOpen]);
 
   const copyEmailToClipboard = async () => {
     try {
@@ -222,7 +228,7 @@ const Home = () => {
 
         <button
           type="button"
-          onClick={() => setIsContactOpen(true)}
+          onClick={openContactDialog}
           style={{
             padding: '4px 12px',
             border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)'}`,
@@ -241,7 +247,7 @@ const Home = () => {
       {isContactOpen && (
         <div
           role="presentation"
-          onClick={() => setIsContactOpen(false)}
+          onClick={closeContactDialog}
           style={{
             position: 'fixed',
             inset: 0,
@@ -279,7 +285,7 @@ const Home = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setIsContactOpen(false)}
+                onClick={closeContactDialog}
                 aria-label={language === 'ko' ? '닫기' : 'Close'}
                 style={{
                   width: '32px',

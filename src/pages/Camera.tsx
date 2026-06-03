@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
 import AnalysisWizard from '../components/AnalysisWizard';
-import { Square, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Square, ArrowLeft, RotateCcw, AlertTriangle } from 'lucide-react';
 import { containerPointToVideoPoint, videoPointToContainerPoint } from '../utils/videoCoordinates';
+
+type CameraError = 'unsupported' | 'permission' | 'general';
 
 const Camera = () => {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ const Camera = () => {
     setNetTop,
     setGround,
     setShuttlecockPos,
+    language,
   } = useStore((state: AppState) => state);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -30,6 +33,7 @@ const Camera = () => {
   const [rollDeg, setRollDeg] = useState(0);   
   const [showARLine, setShowARLine] = useState(true);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<CameraError | null>(null);
 
   const releasePreviewUrl = useCallback(() => {
     if (previewUrlRef.current) {
@@ -103,15 +107,49 @@ const Camera = () => {
   };
 
   const startCamera = useCallback(() => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      stopCameraStream();
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(stream => {
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        })
-        .catch(err => console.error("Camera error:", err));
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('unsupported');
+      return;
     }
+
+    setCameraError(null);
+    stopCameraStream();
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        setCameraError(null);
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(err => {
+        console.error("Camera error:", err);
+        setCameraError(err?.name === 'NotAllowedError' ? 'permission' : 'general');
+      });
   }, [stopCameraStream]);
+
+  const getCameraErrorMessage = () => {
+    if (!cameraError) return '';
+
+    if (cameraError === 'unsupported') {
+      if (!window.isSecureContext) {
+        return language === 'ko'
+          ? '현재 주소는 보안 연결이 아니라 카메라와 업데이트 감지가 차단됩니다. Cloudflare HTTPS 주소에서 확인해주세요.'
+          : 'This address is not secure, so camera access and update detection are blocked. Use the Cloudflare HTTPS URL.';
+      }
+
+      return language === 'ko'
+        ? '이 브라우저는 카메라 촬영을 지원하지 않습니다.'
+        : 'This browser does not support camera recording.';
+    }
+
+    if (cameraError === 'permission') {
+      return language === 'ko'
+        ? '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
+        : 'Camera permission was denied. Allow camera access in your browser settings.';
+    }
+
+    return language === 'ko'
+      ? '카메라를 시작할 수 없습니다. 권한과 브라우저 설정을 확인해주세요.'
+      : 'Could not start the camera. Check permissions and browser settings.';
+  };
 
   useEffect(() => {
     startCamera();
@@ -252,6 +290,24 @@ const Camera = () => {
         {showARLine && !videoPreviewUrl && (
           <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', borderTop: '2px dashed var(--accent-color)', pointerEvents: 'none', transform: `translateY(${pitchDeg}px)`, transition: 'transform 0.1s ease-out', zIndex: 30 }}>
             <span style={{ position: 'absolute', right: 10, top: -20, color: 'var(--accent-color)', fontWeight: 'bold', textShadow: '1px 1px 2px black', fontSize: '0.85rem' }}>◀ 1.15m</span>
+          </div>
+        )}
+
+        {cameraError && !videoPreviewUrl && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(0,0,0,0.56)' }}>
+            <div style={{ width: '100%', maxWidth: '340px', borderRadius: '16px', background: 'rgba(20,20,20,0.88)', border: '1px solid rgba(255,255,255,0.18)', padding: '20px', color: '#fff', textAlign: 'center', backdropFilter: 'blur(12px)' }}>
+              <AlertTriangle size={28} color="var(--accent-color)" style={{ marginBottom: '10px' }} />
+              <div style={{ fontSize: '0.95rem', lineHeight: 1.5, fontWeight: 700, marginBottom: '14px' }}>
+                {getCameraErrorMessage()}
+              </div>
+              <button
+                type="button"
+                onClick={startCamera}
+                style={{ border: 'none', borderRadius: '10px', padding: '10px 16px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+              >
+                {language === 'ko' ? '다시 시도' : 'Try Again'}
+              </button>
+            </div>
           </div>
         )}
 
