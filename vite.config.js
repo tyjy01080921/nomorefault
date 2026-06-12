@@ -19,7 +19,7 @@ export default defineConfig({
       },
     }),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['vite.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'NoMoreFault - 서비스 폴트 판독기',
