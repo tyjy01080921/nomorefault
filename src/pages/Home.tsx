@@ -142,7 +142,7 @@ const Home = () => {
         {([
           { icon: <Smartphone size={16} color="var(--accent-color)"/>, ko: '선수의 전신이 화면에 모두 들어오게 촬영하세요', en: 'Capture the full body of the player' },
           { icon: <Clock size={16} color="var(--accent-color)"/>, ko: '측면 90도 각도에서 촬영할수록 정확도가 높습니다', en: 'Side angle (90°) gives the best accuracy' },
-          { icon: <Ruler size={16} color="var(--accent-color)"/>, ko: '카메라를 최대한 수평으로 유지하세요 (기울기 자동 보정)', en: 'Keep the camera level (auto-correction available)' },
+          { icon: <Ruler size={16} color="var(--accent-color)"/>, ko: '수직·수평 가이드에 맞춰 촬영하면 기준선 왜곡을 줄일 수 있습니다', en: 'Use the vertical and horizontal guides to reduce reference-line distortion' },
           { icon: <Camera size={16} color="var(--accent-color)"/>, ko: '카메라 화면이 고정될수록 정확도가 올라갑니다.', en: 'Steadier camera means better accuracy.' },
         ] as const).map((tip, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: i < 3 ? '14px' : 0 }}>
@@ -196,7 +196,7 @@ const Home = () => {
             {language === 'ko' ? '실시간 촬영' : 'Live Recording'}
           </span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
-            {language === 'ko' ? '카메라로 직접 촬영하여 분석합니다' : 'Record and analyze with camera'}
+            {language === 'ko' ? '촬영 후 영상에서 기준점을 지정합니다' : 'Record first, then mark reference points'}
           </span>
         </div>
       </button>

@@ -6,10 +6,6 @@ export interface AppState {
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
 
-  // Wizard step
-  wizardStep: number;
-  setWizardStep: (step: number) => void;
-
   // Net coordinates
   netBase: { y: number; x: number } | null;
   setNetBase: (y: number, x: number) => void;
@@ -23,6 +19,9 @@ export interface AppState {
   // Shuttlecock position
   shuttlecockPos: { x: number; y: number } | null;
   setShuttlecockPos: (pos: { x: number; y: number }) => void;
+
+  // Clear per-video analysis inputs
+  resetAnalysisInputs: () => void;
 
   // UI Theme
   isDarkMode: boolean;
@@ -48,10 +47,6 @@ export const useStore = create<AppState>((set) => ({
   videoFile: null,
   setVideoFile: (file) => set({ videoFile: file }),
 
-  // Wizard step
-  wizardStep: 0,
-  setWizardStep: (step) => set({ wizardStep: step }),
-
   // Net coordinates
   netBase: null,
   setNetBase: (y, x) => set({ netBase: { y, x } }),
@@ -65,6 +60,15 @@ export const useStore = create<AppState>((set) => ({
   // Shuttlecock position
   shuttlecockPos: null,
   setShuttlecockPos: (pos) => set({ shuttlecockPos: pos }),
+
+  // Clear per-video analysis inputs
+  resetAnalysisInputs: () => set({
+    netBase: null,
+    netTop: null,
+    ground: null,
+    shuttlecockPos: null,
+    poseLandmarks: null,
+  }),
 
   // UI Theme
   isDarkMode: true,
