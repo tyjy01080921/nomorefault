@@ -6,8 +6,16 @@ import { useStore, AppState } from '../store/useStore';
 import AnalysisWizard from '../components/AnalysisWizard';
 import { Square, ArrowLeft, RotateCcw, AlertTriangle } from 'lucide-react';
 import { containerPointToVideoPoint, videoPointToContainerPoint } from '../utils/videoCoordinates';
+import { calculateServiceLineY } from '../utils/verdict';
 
 type CameraError = 'unsupported' | 'permission' | 'general';
+
+interface VideoLayout {
+  containerWidth: number;
+  containerHeight: number;
+  videoWidth: number;
+  videoHeight: number;
+}
 
 const Camera = () => {
   const navigate = useNavigate();
@@ -16,8 +24,11 @@ const Camera = () => {
     wizardStep,
     setWizardStep,
     setNetBase,
+    netBase,
     setNetTop,
+    netTop,
     setGround,
+    ground,
     setShuttlecockPos,
     language,
   } = useStore((state: AppState) => state);
@@ -29,11 +40,16 @@ const Camera = () => {
   const previewUrlRef = useRef<string | null>(null);
 
   const [isRecording, setIsRecording] = useState(false);
-  const [pitchDeg, setPitchDeg] = useState(0); 
   const [rollDeg, setRollDeg] = useState(0);   
   const [showARLine, setShowARLine] = useState(true);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<CameraError | null>(null);
+  const [videoLayout, setVideoLayout] = useState<VideoLayout>({
+    containerWidth: 0,
+    containerHeight: 0,
+    videoWidth: 0,
+    videoHeight: 0,
+  });
 
   const releasePreviewUrl = useCallback(() => {
     if (previewUrlRef.current) {
@@ -46,6 +62,29 @@ const Camera = () => {
     const stream = videoRef.current?.srcObject as MediaStream | null;
     stream?.getTracks().forEach((track) => track.stop());
     if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const updateVideoLayout = useCallback(() => {
+    const viewport = viewportRef.current;
+    const video = videoRef.current;
+    if (!viewport || !video || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+
+    const rect = viewport.getBoundingClientRect();
+    setVideoLayout((prev) => {
+      const next = {
+        containerWidth: rect.width,
+        containerHeight: rect.height,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      };
+
+      return prev.containerWidth === next.containerWidth
+        && prev.containerHeight === next.containerHeight
+        && prev.videoWidth === next.videoWidth
+        && prev.videoHeight === next.videoHeight
+        ? prev
+        : next;
+    });
   }, []);
 
   const getRecordingMimeType = () => {
@@ -155,10 +194,7 @@ const Camera = () => {
     startCamera();
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.beta !== null && e.gamma !== null) {
-        const tilt = e.beta - 90; 
-        setPitchDeg(tilt * 4); 
-        
+      if (e.gamma !== null) {
         let roll = e.gamma; 
         if (roll > 45) roll = 45;
         if (roll < -45) roll = -45;
@@ -180,6 +216,12 @@ const Camera = () => {
       releasePreviewUrl();
     };
   }, [releasePreviewUrl, setWizardStep, startCamera, stopCameraStream]);
+
+  useEffect(() => {
+    updateVideoLayout();
+    window.addEventListener('resize', updateVideoLayout);
+    return () => window.removeEventListener('resize', updateVideoLayout);
+  }, [updateVideoLayout]);
 
   const handleCanvasTouch = (e: MouseEvent | TouchEvent) => {
     if (wizardStep === 0 || wizardStep === 1 || wizardStep === 5) return;
@@ -218,20 +260,35 @@ const Camera = () => {
   };
 
   const projectVideoPoint = useCallback((point: { x: number; y: number }) => {
-    const viewport = viewportRef.current;
-    const video = videoRef.current;
-    if (!viewport || !video || video.videoWidth <= 0 || video.videoHeight <= 0) return point;
+    if (
+      videoLayout.containerWidth <= 0
+      || videoLayout.containerHeight <= 0
+      || videoLayout.videoWidth <= 0
+      || videoLayout.videoHeight <= 0
+    ) return point;
 
-    const rect = viewport.getBoundingClientRect();
     return videoPointToContainerPoint(
       point,
-      rect.width,
-      rect.height,
-      video.videoWidth,
-      video.videoHeight,
+      videoLayout.containerWidth,
+      videoLayout.containerHeight,
+      videoLayout.videoWidth,
+      videoLayout.videoHeight,
       'cover',
     );
-  }, []);
+  }, [videoLayout]);
+
+  const serviceLineY = netBase && netTop && ground
+    ? calculateServiceLineY({ netBase, netTop, ground })
+    : null;
+  const projectedServiceLine = serviceLineY !== null
+    ? projectVideoPoint({ x: 0.5, y: serviceLineY })
+    : null;
+  const arLineTop = projectedServiceLine
+    ? `${projectedServiceLine.y * 100}%`
+    : '50%';
+  const arLineLabel = projectedServiceLine
+    ? '◀ 1.15m'
+    : (language === 'ko' ? '수평 가이드' : 'Level guide');
 
   return (
     <div className="camera-container" style={{ background: '#000', height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -279,6 +336,7 @@ const Camera = () => {
             autoPlay 
             playsInline 
             muted 
+            onLoadedMetadata={updateVideoLayout}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
           />
         )}
@@ -288,8 +346,8 @@ const Camera = () => {
 
         {/* AR Level Line */}
         {showARLine && !videoPreviewUrl && (
-          <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', borderTop: '2px dashed var(--accent-color)', pointerEvents: 'none', transform: `translateY(${pitchDeg}px)`, transition: 'transform 0.1s ease-out', zIndex: 30 }}>
-            <span style={{ position: 'absolute', right: 10, top: -20, color: 'var(--accent-color)', fontWeight: 'bold', textShadow: '1px 1px 2px black', fontSize: '0.85rem' }}>◀ 1.15m</span>
+          <div style={{ position: 'absolute', top: arLineTop, left: 0, width: '100%', borderTop: '2px dashed var(--accent-color)', pointerEvents: 'none', transform: 'translateY(-1px)', zIndex: 30 }}>
+            <span style={{ position: 'absolute', right: 10, top: -20, color: 'var(--accent-color)', fontWeight: 'bold', textShadow: '1px 1px 2px black', fontSize: '0.85rem' }}>{arLineLabel}</span>
           </div>
         )}
 

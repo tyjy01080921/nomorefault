@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VERDICT } from './constants';
-import { calculateVerdict } from './verdict';
+import { calculateServiceLineY, calculateVerdict } from './verdict';
 
 const calibration = {
   netBase: { x: 0.5, y: 0.9 },
@@ -55,5 +55,21 @@ describe('calculateVerdict', () => {
 
     expect(result.verdict).toBe(VERDICT.VAR_CHALLENGE);
     expect(result.shuttlecockHeightM).toBe(0);
+  });
+});
+
+describe('calculateServiceLineY', () => {
+  it('projects the 1.15m service line from saved calibration points', () => {
+    expect(calculateServiceLineY(calibration)).toBeCloseTo(0.529, 3);
+  });
+
+  it('returns null for invalid net calibration', () => {
+    expect(
+      calculateServiceLineY({
+        netBase: { x: 0.5, y: 0.4 },
+        netTop: { x: 0.5, y: 0.9 },
+        ground: { x: 0.5, y: 0.9 },
+      }),
+    ).toBeNull();
   });
 });

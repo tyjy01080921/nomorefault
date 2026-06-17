@@ -19,6 +19,15 @@ export interface VerdictResult {
   angles: { shoulder: number; elbow: number; wrist: number };
 }
 
+export function calculateServiceLineY(calibration: CalibrationPoints): number | null {
+  const { netBase, netTop, ground } = calibration;
+  const netPostNorm = netBase.y - netTop.y;
+
+  if (netPostNorm <= 0) return null;
+
+  return ground.y - (BWF.SERVICE_HEIGHT_LIMIT / BWF.NET_POST_HEIGHT) * netPostNorm;
+}
+
 /**
  * Calculates BWF service fault verdict from calibration points and pose landmarks.
  *
