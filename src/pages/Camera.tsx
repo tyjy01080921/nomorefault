@@ -8,6 +8,68 @@ type CameraError = 'unsupported' | 'permission' | 'general';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+const CAMERA_CONSTRAINTS: MediaStreamConstraints[] = [
+  {
+    audio: false,
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { min: 1280, ideal: 1920 },
+      height: { min: 720, ideal: 1080 },
+      frameRate: { ideal: 30, min: 24 },
+    },
+  },
+  {
+    audio: false,
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30 },
+    },
+  },
+  {
+    audio: false,
+    video: { facingMode: { ideal: 'environment' } },
+  },
+];
+
+const getRecordingVideoBitrate = (stream: MediaStream) => {
+  const settings = stream.getVideoTracks()[0]?.getSettings();
+  const width = settings?.width || 0;
+  const height = settings?.height || 0;
+  const longestSide = Math.max(width, height);
+
+  if (longestSide >= 1920) return 8_000_000;
+  if (longestSide >= 1280) return 5_000_000;
+  return 2_500_000;
+};
+
+const openBestAvailableCamera = async () => {
+  let lastError: unknown;
+
+  for (const constraints of CAMERA_CONSTRAINTS) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError;
+};
+
+const logCameraSettings = (stream: MediaStream) => {
+  const settings = stream.getVideoTracks()[0]?.getSettings();
+  if (!settings) return;
+
+  console.info('[camera] active stream settings', {
+    width: settings.width,
+    height: settings.height,
+    frameRate: settings.frameRate,
+    facingMode: settings.facingMode,
+  });
+};
+
 const Camera = () => {
   const navigate = useNavigate();
   const {
@@ -66,7 +128,11 @@ const Camera = () => {
 
         const stream = videoRef.current.srcObject as MediaStream;
         const mimeType = getRecordingMimeType();
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        const recorderOptions: MediaRecorderOptions = {
+          videoBitsPerSecond: getRecordingVideoBitrate(stream),
+          ...(mimeType ? { mimeType } : {}),
+        };
+        const recorder = new MediaRecorder(stream, recorderOptions);
         mediaRecorderRef.current = recorder;
         recordedChunks.current = [];
 
@@ -119,9 +185,10 @@ const Camera = () => {
 
     setCameraError(null);
     stopCameraStream();
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    openBestAvailableCamera()
       .then(stream => {
         setCameraError(null);
+        logCameraSettings(stream);
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(err => {
