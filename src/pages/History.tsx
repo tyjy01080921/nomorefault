@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ROUTES, VERDICT } from '../utils/constants';
+import { BWF, ROUTES, VERDICT } from '../utils/constants';
 import { useStore } from '../store/useStore';
 import { loadHistory, deleteHistoryEntry, HistoryEntry } from '../utils/history';
 import { generateComparisonCard, shareCard } from '../utils/shareCard';
@@ -8,9 +8,11 @@ import { generateComparisonCard, shareCard } from '../utils/shareCard';
 // ─── 상수 ────────────────────────────────────────────────────
 
 const VERDICT_LABEL: Record<string, { short: string; color: string }> = {
-  [VERDICT.PERFECT]:       { short: 'PASS',   color: '#30D158' },
-  [VERDICT.FAULT]:         { short: 'FAULT',  color: '#FF453A' },
-  [VERDICT.VAR_CHALLENGE]: { short: '재검토', color: '#FF9F0A' },
+  [VERDICT.NORMAL]:         { short: '정상',      color: '#30D158' },
+  [VERDICT.CHECK_REQUIRED]: { short: '확인 필요', color: '#FF9F0A' },
+  [VERDICT.FAULT]:          { short: '폴트',      color: '#FF453A' },
+  [VERDICT.PERFECT]:        { short: '정상',      color: '#30D158' },
+  [VERDICT.VAR_CHALLENGE]:  { short: '확인 필요', color: '#FF9F0A' },
 };
 
 function formatDate(iso: string): string {
@@ -19,6 +21,16 @@ function formatDate(iso: string): string {
 }
 
 const BAR_MAX_HEIGHT = 60;
+
+function formatHeight(entry: HistoryEntry): string {
+  if (typeof entry.heightDeltaM !== 'number' || !Number.isFinite(entry.heightDeltaM)) {
+    return `기준선 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 기반 판정`;
+  }
+
+  const cm = Math.round(entry.heightDeltaM * 100);
+  if (cm === 0) return '기준선과 동일';
+  return cm > 0 ? `기준선 +${cm}cm` : `기준선 -${Math.abs(cm)}cm`;
+}
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────
 
@@ -67,8 +79,8 @@ const History = () => {
       const blob = await generateComparisonCard({
         labelA: `A: ${VERDICT_LABEL[entA.verdict]?.short ?? entA.verdict} (${formatDate(entA.date)})`,
         labelB: `B: ${VERDICT_LABEL[entB.verdict]?.short ?? entB.verdict} (${formatDate(entB.date)})`,
-        resultA: { verdict: entA.verdict, angles: entA.angles },
-        resultB: { verdict: entB.verdict, angles: entB.angles },
+        resultA: { verdict: entA.verdict, shuttlecockHeightM: entA.shuttlecockHeightM, heightDeltaM: entA.heightDeltaM },
+        resultB: { verdict: entB.verdict, shuttlecockHeightM: entB.shuttlecockHeightM, heightDeltaM: entB.heightDeltaM },
       });
       await shareCard(blob, 'No More Fault — A+B 서비스 비교');
     } catch (e) {
@@ -185,7 +197,7 @@ const History = () => {
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: `${BAR_MAX_HEIGHT + 20}px` }}>
             {chartEntries.map((e) => {
-              const cfg = VERDICT_LABEL[e.verdict] ?? VERDICT_LABEL[VERDICT.VAR_CHALLENGE];
+              const cfg = VERDICT_LABEL[e.verdict] ?? VERDICT_LABEL[VERDICT.CHECK_REQUIRED];
               return (
                 <div key={e.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div style={{
@@ -208,7 +220,7 @@ const History = () => {
       {/* 기록 리스트 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {entries.map((entry, idx) => {
-          const cfg = VERDICT_LABEL[entry.verdict] ?? VERDICT_LABEL[VERDICT.VAR_CHALLENGE];
+          const cfg = VERDICT_LABEL[entry.verdict] ?? VERDICT_LABEL[VERDICT.CHECK_REQUIRED];
           const isSelected = selected.has(entry.id);
 
           return (
@@ -254,7 +266,7 @@ const History = () => {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 800, color: cfg.color, fontSize: '0.95rem' }}>{cfg.short}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginTop: '2px' }}>
-                    {formatDate(entry.date)} · 어깨 {entry.angles.shoulder}° 팔꿈치 {entry.angles.elbow}°
+                    {formatDate(entry.date)} · {formatHeight(entry)}
                   </div>
                 </div>
 
