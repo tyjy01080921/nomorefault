@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ROUTES } from './utils/constants';
 import Home from './pages/Home';
 import Camera from './pages/Camera';
@@ -10,7 +10,8 @@ import History from './pages/History';
 import { useStore } from './store/useStore';
 import { Sun, Moon, Globe, AlertTriangle, Link, RefreshCw } from 'lucide-react';
 
-const App = () => {
+const AppContent = () => {
+  const location = useLocation();
   const isDarkMode = useStore((state) => state.isDarkMode);
   const setIsDarkMode = useStore((state) => state.setIsDarkMode);
   const language = useStore((state) => state.language);
@@ -18,6 +19,9 @@ const App = () => {
   const needRefresh = useStore((state) => state.needRefresh);
   const updateServiceWorker = useStore((state) => state.updateServiceWorker);
   const [isUpdating, setIsUpdating] = useState(false);
+  const isCameraRoute = location.pathname === ROUTES.CAMERA;
+  const isAnalysisRoute = location.pathname === ROUTES.ANALYSIS;
+  const isImmersiveRoute = isCameraRoute || isAnalysisRoute;
 
   // CSS 변수 적용 — 3월 22일 소프트 핑크 테마 기반
   useEffect(() => {
@@ -118,153 +122,163 @@ const App = () => {
   };
 
   return (
-    <Router>
-      <div style={{ background: 'var(--bg-color)', color: 'var(--text-main)', minHeight: '100vh', paddingBottom: needRefresh ? '88px' : 0, transition: 'background-color 0.3s, color 0.3s' }}>
-        {/* Global Header */}
-        <header
-          style={{
-            width: '100%',
-            height: '56px',
-            background: 'var(--panel-bg)',
-            display: 'grid', // Use grid to ensure center alignment and no overlap
-            gridTemplateColumns: 'min-content 1fr min-content',
-            alignItems: 'center',
-            padding: '0 16px',
-            boxSizing: 'border-box',
-            zIndex: 50,
-            position: 'sticky',
-            top: 0,
-            borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
-            gap: '8px'
-          }}
-        >
-          {/* Left: Dark mode toggle */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            style={headerRoundButtonStyle}
-            title={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
-          >
-            {isDarkMode ? <Sun size={16} color="var(--accent-color)" /> : <Moon size={16} color="var(--accent-color)" />}
-          </button>
-
-          {/* Center: Title */}
-          <div
+    <div style={{ background: isImmersiveRoute ? '#000' : 'var(--bg-color)', color: 'var(--text-main)', minHeight: isImmersiveRoute ? '100dvh' : '100vh', height: isCameraRoute ? '100dvh' : undefined, overflow: isCameraRoute ? 'hidden' : undefined, paddingBottom: needRefresh && !isImmersiveRoute ? '88px' : 0, transition: 'background-color 0.3s, color 0.3s' }}>
+      {!isImmersiveRoute && (
+        <>
+          {/* Global Header */}
+          <header
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              minWidth: 0, // Allow title to truncate if very narrow
-            }}
-          >
-            <AlertTriangle size={18} color="var(--accent-color)" />
-            <span
-              style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: 'var(--accent-color)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-            >
-              No More Fault
-            </span>
-          </div>
-
-          {/* Right: Actions (Share + Language) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-               onClick={copyUrlToClipboard}
-               style={headerRoundButtonStyle}
-               title={language === 'ko' ? '공유하기' : 'Share'}
-             >
-               <Link size={14} />
-             </button>
-
-            <button
-              onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
-              style={headerPillButtonStyle}
-            >
-              <Globe size={14} />
-              {language === 'ko' ? 'EN' : 'KO'}
-            </button>
-          </div>
-        </header>
-
-        {needRefresh && (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              position: 'fixed',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 100,
+              width: '100%',
+              height: '56px',
               background: 'var(--panel-bg)',
-              borderTop: '1px solid var(--card-border)',
-              backdropFilter: 'blur(12px)',
+              display: 'grid', // Use grid to ensure center alignment and no overlap
+              gridTemplateColumns: 'min-content 1fr min-content',
+              alignItems: 'center',
+              padding: '0 16px',
               boxSizing: 'border-box',
-              padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
+              zIndex: 50,
+              position: 'sticky',
+              top: 0,
+              borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+              gap: '8px'
             }}
           >
+            {/* Left: Dark mode toggle */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              style={headerRoundButtonStyle}
+              title={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
+            >
+              {isDarkMode ? <Sun size={16} color="var(--accent-color)" /> : <Moon size={16} color="var(--accent-color)" />}
+            </button>
+
+            {/* Center: Title */}
             <div
               style={{
-                maxWidth: '720px',
-                margin: '0 auto',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
+                justifyContent: 'center',
+                gap: '6px',
+                minWidth: 0, // Allow title to truncate if very narrow
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 700 }}>
-                  {language === 'ko' ? '새 버전이 있습니다' : 'New version available'}
-                </div>
-                <div style={{ color: 'var(--text-sub)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px' }}>
-                  {language === 'ko' ? '업데이트하면 최신 앱으로 다시 열립니다.' : 'Update to reload with the latest app.'}
-                </div>
-              </div>
-              <button
-                onClick={handleUpdateClick}
-                disabled={isUpdating}
+              <AlertTriangle size={18} color="var(--accent-color)" />
+              <span
                 style={{
-                  background: isUpdating ? 'rgba(255, 159, 180, 0.45)' : 'var(--accent-color)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  cursor: isUpdating ? 'default' : 'pointer',
-                  minWidth: '104px',
-                  height: '38px',
-                  padding: '0 14px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  color: 'var(--accent-color)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
               >
-                <RefreshCw size={15} />
-                {isUpdating
-                  ? (language === 'ko' ? '진행 중' : 'Updating')
-                  : (language === 'ko' ? '업데이트' : 'Update')}
+                No More Fault
+              </span>
+            </div>
+
+            {/* Right: Actions (Share + Language) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                 onClick={copyUrlToClipboard}
+                 style={headerRoundButtonStyle}
+                 title={language === 'ko' ? '공유하기' : 'Share'}
+               >
+                 <Link size={14} />
+               </button>
+
+              <button
+                onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+                style={headerPillButtonStyle}
+              >
+                <Globe size={14} />
+                {language === 'ko' ? 'EN' : 'KO'}
               </button>
             </div>
-          </div>
-        )}
+          </header>
+        </>
+      )}
 
-        {/* Page Content */}
-        <Routes>
-          <Route path={ROUTES.HOME} element={<Home />} />
-          <Route path={ROUTES.CAMERA} element={<Camera />} />
-          <Route path={ROUTES.ANALYSIS} element={<AnalysisSetup />} />
-          <Route path={ROUTES.RESULT} element={<Result />} />
-          <Route path="/history" element={<History />} />
-        </Routes>
-      </div>
+      {needRefresh && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+            background: 'var(--panel-bg)',
+            borderTop: '1px solid var(--card-border)',
+            backdropFilter: 'blur(12px)',
+            boxSizing: 'border-box',
+            padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '720px',
+              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 700 }}>
+                {language === 'ko' ? '새 버전이 있습니다' : 'New version available'}
+              </div>
+              <div style={{ color: 'var(--text-sub)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px' }}>
+                {language === 'ko' ? '업데이트하면 최신 앱으로 다시 열립니다.' : 'Update to reload with the latest app.'}
+              </div>
+            </div>
+            <button
+              onClick={handleUpdateClick}
+              disabled={isUpdating}
+              style={{
+                background: isUpdating ? 'rgba(255, 159, 180, 0.45)' : 'var(--accent-color)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                cursor: isUpdating ? 'default' : 'pointer',
+                minWidth: '104px',
+                height: '38px',
+                padding: '0 14px',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <RefreshCw size={15} />
+              {isUpdating
+                ? (language === 'ko' ? '진행 중' : 'Updating')
+                : (language === 'ko' ? '업데이트' : 'Update')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Page Content */}
+      <Routes>
+        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.CAMERA} element={<Camera />} />
+        <Route path={ROUTES.ANALYSIS} element={<AnalysisSetup />} />
+        <Route path={ROUTES.RESULT} element={<Result />} />
+        <Route path="/history" element={<History />} />
+      </Routes>
+    </div>
+  );
+};
+
+const App = () => {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 };

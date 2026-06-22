@@ -248,30 +248,36 @@ const Camera = () => {
     };
   }, [releasePreviewUrl, startCamera, stopCameraStream]);
 
-  const horizontalOffset = clamp(level.roll / 15, -1, 1) * 34;
-  const verticalOffset = clamp(level.pitch / 18, -1, 1) * 30;
+  const levelOffsetX = clamp(level.roll / 15, -1, 1) * 17;
+  const levelOffsetY = clamp(level.pitch / 18, -1, 1) * 17;
   const isLevel = Math.abs(level.roll) <= 3 && Math.abs(level.pitch) <= 8;
   const levelText = language === 'ko'
-    ? (isLevel ? '각도 좋음' : '수직·수평 맞추기')
-    : (isLevel ? 'Aligned' : 'Level the shot');
+    ? (isLevel ? '각도 좋음' : '기울기 맞추기')
+    : (isLevel ? 'Aligned' : 'Level');
 
   return (
-    <div className="camera-container" style={{ background: '#000', height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 40, display: 'flex', gap: '12px' }}>
-        <button onClick={() => navigate(ROUTES.HOME)} style={{ background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', padding: '8px', borderRadius: '50%', display: 'flex' }}><ArrowLeft size={20} /></button>
+    <div className="camera-container" style={{ background: '#000', height: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: 'calc(14px + env(safe-area-inset-left))', zIndex: 40, display: 'flex', gap: '12px' }}>
+        <button
+          onClick={() => navigate(ROUTES.HOME)}
+          style={{ width: 40, height: 40, background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.18)', color: '#fff', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}
+        >
+          <ArrowLeft size={20} />
+        </button>
       </div>
 
-      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 40 }}>
+      <div style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', right: 'calc(14px + env(safe-area-inset-right))', zIndex: 40 }}>
         <button
           onClick={() => setShowGuides(!showGuides)}
           style={{
             background: showGuides ? 'var(--accent-color)' : 'rgba(0,0,0,0.5)',
             color: '#fff',
             border: 'none',
-            padding: '8px 16px',
+            padding: '0 14px',
             borderRadius: '20px',
             fontSize: '0.8rem',
             fontWeight: 'bold',
+            height: 40,
             backdropFilter: 'blur(4px)',
           }}
         >
@@ -306,30 +312,17 @@ const Camera = () => {
             <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', borderTop: '1px solid rgba(255,255,255,0.35)', transform: 'translateY(-0.5px)', pointerEvents: 'none', zIndex: 25 }} />
             <div style={{ position: 'absolute', top: '50%', left: '50%', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.82)', borderRadius: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 26 }} />
 
-            <div style={{ position: 'absolute', top: 68, left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '16px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.35, textAlign: 'center', backdropFilter: 'blur(10px)', width: 'max-content', maxWidth: 'calc(100% - 96px)' }}>
+            <div style={{ position: 'absolute', top: 'calc(68px + env(safe-area-inset-top))', left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '16px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.35, textAlign: 'center', backdropFilter: 'blur(10px)', width: 'max-content', maxWidth: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
               {language === 'ko' ? '네트 기둥을 세로선에 맞춰 촬영' : 'Align the net post to the vertical guide'}
             </div>
 
-            <div style={{ position: 'absolute', bottom: 148, left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.46)', border: `1px solid ${isLevel ? 'rgba(48,209,88,0.55)' : 'rgba(255,255,255,0.18)'}`, borderRadius: '18px', padding: '10px 14px', display: 'grid', gridTemplateColumns: 'auto auto', gap: '12px', alignItems: 'center', backdropFilter: 'blur(10px)', boxShadow: '0 8px 24px rgba(0,0,0,0.22)' }}>
-              <div style={{ display: 'grid', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: 34, fontSize: '0.72rem', fontWeight: 800, opacity: 0.9 }}>{language === 'ko' ? '수평' : 'Roll'}</span>
-                  <div style={{ width: 82, height: 6, background: 'rgba(255,255,255,0.22)', borderRadius: 999, position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '50%', top: -3, width: 12, height: 12, borderRadius: '50%', background: isLevel ? '#30D158' : 'var(--accent-color)', boxShadow: '0 0 8px rgba(255,255,255,0.35)', transform: `translateX(calc(-50% + ${horizontalOffset}px))`, transition: 'transform 0.12s ease-out, background-color 0.12s ease-out' }} />
-                    <div style={{ position: 'absolute', left: '50%', top: -4, height: 14, borderLeft: '1px solid rgba(255,255,255,0.45)' }} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: 34, fontSize: '0.72rem', fontWeight: 800, opacity: 0.9 }}>{language === 'ko' ? '수직' : 'Pitch'}</span>
-                  <div style={{ width: 82, height: 6, background: 'rgba(255,255,255,0.22)', borderRadius: 999, position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '50%', top: -3, width: 12, height: 12, borderRadius: '50%', background: isLevel ? '#30D158' : '#32ADE6', boxShadow: '0 0 8px rgba(255,255,255,0.35)', transform: `translateX(calc(-50% + ${verticalOffset}px))`, transition: 'transform 0.12s ease-out, background-color 0.12s ease-out' }} />
-                    <div style={{ position: 'absolute', left: '50%', top: -4, height: 14, borderLeft: '1px solid rgba(255,255,255,0.45)' }} />
-                  </div>
-                </div>
+            <div style={{ position: 'absolute', bottom: 'calc(118px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.48)', border: `1px solid ${isLevel ? 'rgba(48,209,88,0.58)' : 'rgba(255,255,255,0.18)'}`, borderRadius: 999, padding: '8px 12px 8px 8px', display: 'flex', gap: '10px', alignItems: 'center', backdropFilter: 'blur(10px)', boxShadow: '0 8px 24px rgba(0,0,0,0.22)' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', border: `2px solid ${isLevel ? 'rgba(48,209,88,0.82)' : 'rgba(255,255,255,0.74)'}`, background: 'rgba(255,255,255,0.10)', position: 'relative', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.18)' }}>
+                <div style={{ position: 'absolute', left: '50%', top: '50%', width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,0.6)', transform: 'translate(-50%, -50%)' }} />
+                <div style={{ position: 'absolute', left: '50%', top: '50%', width: 14, height: 14, borderRadius: '50%', background: isLevel ? '#30D158' : 'var(--accent-color)', boxShadow: isLevel ? '0 0 10px rgba(48,209,88,0.55)' : '0 0 10px rgba(255,159,180,0.42)', transform: `translate(calc(-50% + ${levelOffsetX}px), calc(-50% + ${levelOffsetY}px))`, transition: 'transform 0.12s ease-out, background-color 0.12s ease-out' }} />
               </div>
 
-              <div style={{ minWidth: 54, textAlign: 'center', color: isLevel ? '#30D158' : '#fff', fontSize: '0.76rem', fontWeight: 900 }}>
+              <div style={{ minWidth: 58, textAlign: 'center', color: isLevel ? '#30D158' : '#fff', fontSize: '0.78rem', fontWeight: 900, whiteSpace: 'nowrap' }}>
                 {levelText}
               </div>
             </div>
@@ -337,7 +330,7 @@ const Camera = () => {
         )}
 
         {isRecording && (
-          <div style={{ position: 'absolute', top: 68, right: 16, zIndex: 34, display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontWeight: 900, fontSize: '0.76rem', background: 'rgba(255,59,59,0.78)', borderRadius: 999, padding: '6px 10px', letterSpacing: 0 }}>
+          <div style={{ position: 'absolute', top: 'calc(68px + env(safe-area-inset-top))', right: 'calc(16px + env(safe-area-inset-right))', zIndex: 34, display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontWeight: 900, fontSize: '0.76rem', background: 'rgba(255,59,59,0.78)', borderRadius: 999, padding: '6px 10px', letterSpacing: 0 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
             REC
           </div>
@@ -362,7 +355,7 @@ const Camera = () => {
         )}
       </div>
 
-      <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '2rem 1rem 4rem', display: 'flex', justifyContent: 'center', zIndex: 45, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%', minHeight: 132, padding: '24px max(16px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 45, background: 'linear-gradient(transparent, rgba(0,0,0,0.64))', boxSizing: 'border-box' }}>
         {videoPreviewUrl ? (
           <div style={{ display: 'flex', gap: '20px', width: '100%', maxWidth: '320px' }}>
             <button
@@ -382,10 +375,10 @@ const Camera = () => {
           <button
             className="record-btn"
             onClick={toggleRecording}
-            style={{ width: 72, height: 72, background: 'transparent', border: '4px solid white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: 76, height: 76, flex: '0 0 auto', boxSizing: 'border-box', background: 'transparent', border: '4px solid white', borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, margin: 0, lineHeight: 0, appearance: 'none', WebkitAppearance: 'none' }}
           >
-            <div className="record-circle" style={{ width: isRecording ? 32 : 54, height: isRecording ? 32 : 54, background: '#ff3b3b', borderRadius: isRecording ? '8px' : '50%', transition: 'all 0.2s' }}>
-              {isRecording && <Square fill="white" stroke="white" size={16} style={{ margin: '8px' }} />}
+            <div className="record-circle" style={{ width: isRecording ? 32 : 56, height: isRecording ? 32 : 56, background: '#ff3b3b', borderRadius: isRecording ? '8px' : '50%', transition: 'all 0.2s', display: 'grid', placeItems: 'center' }}>
+              {isRecording && <Square fill="white" stroke="white" size={16} />}
             </div>
           </button>
         )}

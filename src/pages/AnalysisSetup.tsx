@@ -25,6 +25,7 @@ interface OverlayLayout {
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const precisionZoom = 4;
 const pointSteps: PointStep[] = ['netBase', 'netTop', 'ground', 'shuttlecock'];
+const darkButtonText = '#2d1c22';
 
 const isPointStep = (step: AnnotationStep): step is PointStep => (
   step === 'netBase'
@@ -252,6 +253,9 @@ const AnalysisSetup = () => {
 
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (!framePreviewUrl) {
+      setFramePreviewUrl(captureFrameSnapshot() ?? null);
+    }
     setDraftPoint(point);
   };
 
@@ -326,6 +330,7 @@ const AnalysisSetup = () => {
 
   const handlePrecisionPointer = (e: PointerEvent<HTMLDivElement>) => {
     if (!draftPoint || !isPointStep(annotationStep) || isAnalyzing) return;
+    if (e.type === 'pointermove' && e.buttons === 0) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const localX = clamp01((e.clientX - rect.left) / rect.width);
@@ -431,8 +436,8 @@ const AnalysisSetup = () => {
   const selectedPointItems = annotationPoints.filter(({ point }) => point);
 
   return (
-    <div style={{ background: 'var(--bg-color)', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <div style={{ padding: '18px 16px 12px', display: 'grid', gridTemplateColumns: '40px 1fr 40px', alignItems: 'center', gap: '8px' }}>
+    <div style={{ background: 'var(--bg-color)', minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ padding: 'calc(14px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left))', display: 'grid', gridTemplateColumns: '40px minmax(0, 1fr) 40px', alignItems: 'center', gap: '8px' }}>
         <button
           type="button"
           onClick={() => navigate(ROUTES.CAMERA)}
@@ -442,17 +447,17 @@ const AnalysisSetup = () => {
           <ArrowLeft size={18} />
         </button>
         <div style={{ textAlign: 'center', minWidth: 0 }}>
-          <h3 style={{ color: 'var(--accent-color)', fontWeight: 800, margin: '0 0 6px', fontSize: '1.15rem' }}>
+          <h3 style={{ color: 'var(--accent-color)', fontWeight: 900, margin: '0 0 4px', fontSize: '1rem', lineHeight: 1.25 }}>
             {stepCopy[annotationStep].title}
           </h3>
-          <p style={{ color: 'var(--text-main)', fontSize: '0.82rem', margin: 0, opacity: 0.8, lineHeight: 1.35 }}>
+          <p style={{ color: 'var(--text-main)', fontSize: '0.78rem', margin: 0, opacity: 0.9, lineHeight: 1.4, overflowWrap: 'break-word' }}>
             {stepCopy[annotationStep].body}
           </p>
         </div>
         <span />
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 16px 18px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))' }}>
         <div
           ref={playerRef}
           onPointerDown={handlePlayerPointer}
@@ -511,9 +516,9 @@ const AnalysisSetup = () => {
           {draftPoint && activePointStep && (
             <div
               onPointerDown={(e) => e.stopPropagation()}
-              style={{ position: 'absolute', left: 12, right: 12, top: 12, zIndex: 28, display: 'grid', justifyItems: 'center', gap: '8px', pointerEvents: 'auto' }}
+              style={{ position: 'absolute', left: 10, right: 10, top: 10, zIndex: 28, display: 'grid', justifyItems: 'center', gap: '8px', pointerEvents: 'auto' }}
             >
-              <div style={{ width: 'min(68vw, 240px)', aspectRatio: videoAspectRatio, maxHeight: '168px', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.9)', boxShadow: '0 8px 24px rgba(0,0,0,0.45)', background: '#111', position: 'relative', touchAction: 'none' }} onPointerDown={handlePrecisionPointer}>
+              <div style={{ width: 'min(74vw, 270px)', aspectRatio: videoAspectRatio, maxHeight: '176px', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.92)', boxShadow: '0 8px 24px rgba(0,0,0,0.48)', background: '#111', position: 'relative', touchAction: 'none' }} onPointerDown={handlePrecisionPointer} onPointerMove={handlePrecisionPointer}>
                 {framePreviewUrl ? (
                   <img
                     src={framePreviewUrl}
@@ -539,6 +544,9 @@ const AnalysisSetup = () => {
                 <span style={{ position: 'absolute', left: '50%', top: 0, width: 2, height: '100%', background: 'rgba(255,255,255,0.9)', transform: 'translateX(-50%)', pointerEvents: 'none' }} />
                 <span style={{ position: 'absolute', left: 0, top: '50%', width: '100%', height: 2, background: 'rgba(255,255,255,0.9)', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                 <span style={{ position: 'absolute', left: '50%', top: '50%', width: 12, height: 12, borderRadius: '50%', border: '2px solid var(--accent-color)', transform: 'translate(-50%, -50%)', boxShadow: '0 0 0 2px rgba(0,0,0,0.45)', pointerEvents: 'none' }} />
+                <span style={{ position: 'absolute', right: 8, top: 8, borderRadius: 999, padding: '3px 7px', background: 'rgba(0,0,0,0.64)', color: '#fff', fontSize: '0.66rem', fontWeight: 900, pointerEvents: 'none' }}>
+                  {language === 'ko' ? '4배 확대' : '4x zoom'}
+                </span>
               </div>
 
               <div style={{ width: 'min(92vw, 320px)', display: 'grid', gridTemplateColumns: '1fr 1.25fr', gap: '8px' }}>
@@ -553,7 +561,7 @@ const AnalysisSetup = () => {
                 <button
                   type="button"
                   onClick={handleConfirmDraftPoint}
-                  style={{ minHeight: 38, borderRadius: '10px', border: 'none', background: 'var(--accent-color)', color: '#fff', fontSize: '0.76rem', fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.28)' }}
+                  style={{ minHeight: 38, borderRadius: '10px', border: 'none', background: 'var(--accent-color)', color: darkButtonText, fontSize: '0.76rem', fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.28)' }}
                 >
                   {language === 'ko' ? '이 지점으로 지정' : 'Use This Point'}
                 </button>
@@ -581,7 +589,7 @@ const AnalysisSetup = () => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '6px' }}>
           {progressItems.map((item) => (
-            <div key={item.key} style={{ minHeight: 42, borderRadius: '10px', border: '1px solid var(--card-border)', background: item.done ? 'rgba(48,209,88,0.16)' : 'var(--panel-bg)', color: item.done ? '#30D158' : 'var(--text-sub)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', fontSize: '0.66rem', fontWeight: 800, textAlign: 'center', padding: '4px' }}>
+            <div key={item.key} style={{ minHeight: 42, borderRadius: '10px', border: '1px solid var(--card-border)', background: item.done ? 'rgba(48,209,88,0.18)' : 'var(--panel-bg)', color: item.done ? '#30D158' : 'var(--text-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', fontSize: '0.66rem', fontWeight: 900, textAlign: 'center', padding: '4px' }}>
               {item.done ? <Check size={13} /> : <span style={{ width: 13, height: 13, borderRadius: '50%', border: '1px solid currentColor' }} />}
               <span>{item.label}</span>
             </div>
@@ -600,7 +608,7 @@ const AnalysisSetup = () => {
                   type="button"
                   onClick={() => handleEditPoint(key)}
                   disabled={isAnalyzing}
-                  style={{ minHeight: 40, borderRadius: '10px', border: '1px solid var(--card-border)', background: activePointStep === key ? 'rgba(255,159,180,0.16)' : 'var(--panel-bg)', color: 'var(--text-main)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: '7px', padding: '8px 9px', fontSize: '0.74rem', fontWeight: 900, opacity: isAnalyzing ? 0.45 : 1 }}
+                  style={{ minHeight: 40, borderRadius: '10px', border: '1px solid var(--card-border)', background: activePointStep === key ? 'rgba(255,159,180,0.16)' : 'var(--panel-bg)', color: 'var(--text-main)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: '7px', padding: '8px 9px', fontSize: '0.74rem', fontWeight: 900, opacity: isAnalyzing ? 0.64 : 1 }}
                 >
                   <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: '0 0 0 2px rgba(255,255,255,0.7)' }} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{label}</span>
@@ -616,7 +624,7 @@ const AnalysisSetup = () => {
 
         <div style={{ background: 'var(--panel-bg)', padding: '16px', borderRadius: '18px', border: '1px solid var(--card-border)', boxShadow: '0 8px 16px rgba(255, 159, 180, 0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-sub)', width: '44px' }}>{currentTime.toFixed(2)}s</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-main)', width: '44px' }}>{currentTime.toFixed(2)}s</span>
             <input
               type="range"
               min={0}
@@ -627,20 +635,20 @@ const AnalysisSetup = () => {
               disabled={annotationStep !== 'impact' || isAnalyzing}
               style={{ flex: 1, accentColor: 'var(--accent-color)', height: '20px', opacity: annotationStep === 'impact' ? 1 : 0.45 }}
             />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-sub)', width: '44px', textAlign: 'right' }}>{duration.toFixed(2)}s</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-main)', width: '44px', textAlign: 'right' }}>{duration.toFixed(2)}s</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: annotationStep === 'impact' ? '1fr 1fr 1.2fr' : '1fr', gap: '8px' }}>
             {annotationStep === 'impact' ? (
               <>
-                <button onClick={() => seekTo(currentTime - 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 800 }}>- 1프레임</button>
-                <button onClick={() => seekTo(currentTime + 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.78rem', fontWeight: 800 }}>+ 1프레임</button>
-                <button onClick={handleConfirmImpactFrame} style={{ padding: '10px 8px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: '#fff', fontSize: '0.78rem', fontWeight: 900 }}>
+                <button onClick={() => seekTo(currentTime - 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>- 1프레임</button>
+                <button onClick={() => seekTo(currentTime + 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>+ 1프레임</button>
+                <button onClick={handleConfirmImpactFrame} style={{ padding: '10px 8px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>
                   {language === 'ko' ? '프레임 저장' : 'Save Frame'}
                 </button>
               </>
             ) : (
-              <button onClick={handleRestartAnnotation} style={{ padding: '11px 12px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <button onClick={handleRestartAnnotation} style={{ padding: '11px 12px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.82rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <RotateCcw size={15} />
                 {language === 'ko' ? '프레임과 기준점 다시 지정' : 'Restart Frame and Points'}
               </button>
@@ -654,14 +662,13 @@ const AnalysisSetup = () => {
           style={{
             padding: '18px',
             borderRadius: '16px',
-            background: 'var(--accent-color)',
-            color: '#fff',
+            background: canAnalyze && !isAnalyzing ? 'var(--accent-color)' : 'rgba(255,159,180,0.58)',
+            color: canAnalyze && !isAnalyzing ? darkButtonText : 'rgba(45,28,34,0.82)',
             border: 'none',
             fontWeight: 800,
             fontSize: '1rem',
             marginTop: 'auto',
             boxShadow: '0 4px 12px rgba(255, 159, 180, 0.3)',
-            opacity: canAnalyze && !isAnalyzing ? 1 : 0.48,
           }}
         >
           {language === 'ko' ? '분석 시작하기' : 'Analyze Now'}
