@@ -42,7 +42,6 @@ const AnalysisSetup = () => {
     netBase,
     netTop,
     ground,
-    poseLandmarks,
     setPoseLandmarks,
     setNetBase,
     setNetTop,
@@ -365,12 +364,13 @@ const AnalysisSetup = () => {
 
     setIsAnalyzing(true);
     setTimeout(() => {
-      const { verdict, angles } = calculateVerdict(calibration, shuttlecockPos, poseLandmarks);
+      const { verdict, shuttlecockHeightM, heightDeltaM } = calculateVerdict(calibration, shuttlecockPos);
 
       navigate(ROUTES.RESULT, {
         state: {
           verdict,
-          angles,
+          shuttlecockHeightM,
+          heightDeltaM,
           frameSnapshot: captureFrameSnapshot(),
           timestamp: new Date().toISOString(),
         },

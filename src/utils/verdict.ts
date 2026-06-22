@@ -1,6 +1,4 @@
-import { BWF, VERDICT, POSE_KEYPOINTS } from './constants';
-import { angleBetween } from './angles';
-import type { PoseLandmark } from './pose';
+import { BWF, VERDICT } from './constants';
 
 export interface Coord {
   x: number;
@@ -16,7 +14,7 @@ export interface CalibrationPoints {
 export interface VerdictResult {
   verdict: string;
   shuttlecockHeightM: number;
-  angles: { shoulder: number; elbow: number; wrist: number };
+  heightDeltaM: number;
 }
 
 export function calculateServiceLineY(calibration: CalibrationPoints): number | null {
@@ -29,7 +27,7 @@ export function calculateServiceLineY(calibration: CalibrationPoints): number | 
 }
 
 /**
- * Calculates BWF service fault verdict from calibration points and pose landmarks.
+ * Calculates BWF service fault verdict from calibration points.
  *
  * Height math (normalized y, y increases downward):
  *   netPostNorm = netBase.y - netTop.y  → represents NET_POST_HEIGHT (1.55m)
@@ -38,65 +36,30 @@ export function calculateServiceLineY(calibration: CalibrationPoints): number | 
  */
 export function calculateVerdict(
   calibration: CalibrationPoints,
-  shuttlecockPos: Coord,
-  landmarks: PoseLandmark[] | null
+  shuttlecockPos: Coord
 ): VerdictResult {
-  const angles = extractAngles(landmarks);
-
   // Can't calculate height without calibration
   const { netBase, netTop, ground } = calibration;
   const netPostNorm = netBase.y - netTop.y;
 
   if (netPostNorm <= 0) {
     // Net calibration skipped or invalid — can't determine height
-    return { verdict: VERDICT.VAR_CHALLENGE, shuttlecockHeightM: 0, angles };
+    return { verdict: VERDICT.CHECK_REQUIRED, shuttlecockHeightM: 0, heightDeltaM: 0 };
   }
 
   const shuttlecockAboveGroundNorm = ground.y - shuttlecockPos.y;
   const shuttlecockHeightM =
     (shuttlecockAboveGroundNorm / netPostNorm) * BWF.NET_POST_HEIGHT;
+  const heightDeltaM = shuttlecockHeightM - BWF.SERVICE_HEIGHT_LIMIT;
 
   let verdict: string;
   if (shuttlecockHeightM > BWF.FAULT_THRESHOLD) {
     verdict = VERDICT.FAULT;
-  } else if (shuttlecockHeightM >= BWF.PERFECT_THRESHOLD) {
-    verdict = VERDICT.VAR_CHALLENGE;
+  } else if (shuttlecockHeightM > BWF.SERVICE_HEIGHT_LIMIT) {
+    verdict = VERDICT.CHECK_REQUIRED;
   } else {
-    verdict = VERDICT.PERFECT;
+    verdict = VERDICT.NORMAL;
   }
 
-  return { verdict, shuttlecockHeightM, angles };
-}
-
-function extractAngles(landmarks: PoseLandmark[] | null): {
-  shoulder: number;
-  elbow: number;
-  wrist: number;
-} {
-  const zero = { shoulder: 0, elbow: 0, wrist: 0 };
-  if (!landmarks || landmarks.length < 28) return zero;
-
-  const lm = (i: number) => landmarks[i];
-
-  try {
-    const shoulder = angleBetween(
-      lm(POSE_KEYPOINTS.LEFT_HIP),
-      lm(POSE_KEYPOINTS.LEFT_SHOULDER),
-      lm(POSE_KEYPOINTS.LEFT_ELBOW)
-    );
-    const elbow = angleBetween(
-      lm(POSE_KEYPOINTS.LEFT_SHOULDER),
-      lm(POSE_KEYPOINTS.LEFT_ELBOW),
-      lm(POSE_KEYPOINTS.LEFT_WRIST)
-    );
-    // Simplified wrist: elbow→wrist direction angle (no distal reference in lite model)
-    const wrist = angleBetween(
-      lm(POSE_KEYPOINTS.LEFT_ELBOW),
-      lm(POSE_KEYPOINTS.LEFT_WRIST),
-      { x: lm(POSE_KEYPOINTS.LEFT_WRIST).x + 0.1, y: lm(POSE_KEYPOINTS.LEFT_WRIST).y }
-    );
-    return { shoulder, elbow, wrist };
-  } catch {
-    return zero;
-  }
+  return { verdict, shuttlecockHeightM, heightDeltaM };
 }

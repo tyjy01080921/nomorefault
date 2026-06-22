@@ -1,24 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ROUTES, VERDICT } from '../utils/constants';
+import { BWF, ROUTES, VERDICT } from '../utils/constants';
 import { useStore } from '../store/useStore';
 import { saveHistory } from '../utils/history';
 import { generateShareCard, shareCard } from '../utils/shareCard';
 
 interface ResultState {
   verdict: string;
-  angles: { shoulder: number; elbow: number; wrist: number };
+  shuttlecockHeightM?: number;
+  heightDeltaM?: number;
   frameSnapshot?: string;
   timestamp: string;
 }
 
 const VERDICT_DISPLAY = {
-  [VERDICT.PERFECT]: { label: '통과 ✓', color: '#30D158', sub: 'BWF 서비스 기준 통과' },
-  [VERDICT.FAULT]:   { label: 'FAULT ✕', color: '#FF453A', sub: 'BWF 서비스 폴트' },
-  [VERDICT.VAR_CHALLENGE]: { label: 'VAR ❓', color: '#FFD60A', sub: '재검토 필요' },
+  [VERDICT.NORMAL]: { label: '정상', color: '#30D158', sub: '기준선 이하로 감지되었습니다' },
+  [VERDICT.CHECK_REQUIRED]: { label: '확인 필요', color: '#FF9F0A', sub: '기준선 초과 10cm 이내입니다' },
+  [VERDICT.FAULT]: { label: '폴트', color: '#FF453A', sub: '기준선을 10cm 초과했습니다' },
+  [VERDICT.PERFECT]: { label: '정상', color: '#30D158', sub: '기준선 이하로 감지되었습니다' },
+  [VERDICT.VAR_CHALLENGE]: { label: '확인 필요', color: '#FF9F0A', sub: '기준점 오차 확인이 필요합니다' },
 };
 
-const DEFAULT_ANGLES = { shoulder: 0, elbow: 0, wrist: 0 };
+const formatMeters = (value?: number) => (
+  typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toFixed(2)}m`
+    : '-'
+);
+
+const formatDeltaCm = (value?: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-';
+  const cm = Math.round(value * 100);
+  if (cm === 0) return '기준선과 동일';
+  return cm > 0 ? `+${cm}cm 초과` : `${Math.abs(cm)}cm 낮음`;
+};
 
 const Result = () => {
   const location = useLocation();
@@ -29,23 +43,29 @@ const Result = () => {
   const [sharing, setSharing] = useState(false);
   const savedRef = useRef(false);
 
-  const verdict = state?.verdict ?? VERDICT.VAR_CHALLENGE;
-  const angles = state?.angles ?? DEFAULT_ANGLES;
+  const verdict = state?.verdict ?? VERDICT.CHECK_REQUIRED;
+  const shuttlecockHeightM = state?.shuttlecockHeightM;
+  const heightDeltaM = state?.heightDeltaM;
   const timestamp = state?.timestamp ?? new Date().toISOString();
 
-  const display = VERDICT_DISPLAY[verdict] ?? VERDICT_DISPLAY[VERDICT.VAR_CHALLENGE];
+  const display = VERDICT_DISPLAY[verdict] ?? VERDICT_DISPLAY[VERDICT.CHECK_REQUIRED];
 
   // Auto-save to history on mount
   useEffect(() => {
     if (savedRef.current) return;
     savedRef.current = true;
-    saveHistory({ date: timestamp, verdict, angles, note: '' });
-  }, [angles, timestamp, verdict]);
+    saveHistory({ date: timestamp, verdict, shuttlecockHeightM, heightDeltaM, note: '' });
+  }, [heightDeltaM, shuttlecockHeightM, timestamp, verdict]);
 
   const handleShare = async () => {
     setSharing(true);
     try {
-      const blob = await generateShareCard({ verdict, angles, frameSnapshot: state?.frameSnapshot });
+      const blob = await generateShareCard({
+        verdict,
+        shuttlecockHeightM,
+        heightDeltaM,
+        frameSnapshot: state?.frameSnapshot,
+      });
       await shareCard(blob);
     } catch (e) {
       console.warn('[share]', e);
@@ -93,7 +113,7 @@ const Result = () => {
           {display.sub}
         </div>
 
-        {/* Angle Metrics */}
+        {/* Judgement Criteria */}
         <div style={{
           background: 'rgba(255,255,255,0.4)',
           borderRadius: '16px',
@@ -104,15 +124,29 @@ const Result = () => {
           border: '1px solid rgba(0,0,0,0.03)',
         }}>
           {[
-            { label: language === 'ko' ? '어깨 각도' : 'Shoulder', value: angles.shoulder },
-            { label: language === 'ko' ? '팔꿈치 각도' : 'Elbow', value: angles.elbow },
-            { label: language === 'ko' ? '손목 각도' : 'Wrist', value: angles.wrist },
+            {
+              label: language === 'ko' ? '감지 높이' : 'Detected height',
+              value: formatMeters(shuttlecockHeightM),
+            },
+            {
+              label: language === 'ko' ? '기준선 대비' : 'Against limit',
+              value: formatDeltaCm(heightDeltaM),
+            },
+            {
+              label: language === 'ko' ? '확인 필요 구간' : 'Review zone',
+              value: language === 'ko' ? '초과 10cm 이내' : 'within +10cm',
+            },
           ].map(({ label, value }) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
-              <span style={{ color: display.color, fontWeight: 800, fontSize: '1.1rem' }}>{value.toFixed(1)}°</span>
+              <span style={{ color: display.color, fontWeight: 800, fontSize: '1rem', textAlign: 'right' }}>{value}</span>
             </div>
           ))}
+          <div style={{ marginTop: '4px', color: 'var(--text-sub)', fontSize: '0.76rem', lineHeight: 1.5, textAlign: 'left' }}>
+            {language === 'ko'
+              ? `기준선은 네트 기둥과 지면 기준점으로 계산한 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 추정선입니다. 촬영 각도와 기준점 오차를 고려해 기준선 초과 ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내는 확인 필요로 표시합니다.`
+              : `The guide is an estimated ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m line from the net post and ground points. To account for camera and point-selection error, up to ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm above the guide is marked as review needed.`}
+          </div>
         </div>
       </div>
 

@@ -1,14 +1,17 @@
 // BWF 서비스 규정 상수
 export const BWF = {
     SERVICE_HEIGHT_LIMIT: 1.15,
-    PERFECT_THRESHOLD: 1.10,
-    FAULT_THRESHOLD: 1.15,
+    CHECK_REQUIRED_MARGIN: 0.10,
+    FAULT_THRESHOLD: 1.25,
     NET_POST_HEIGHT: 1.55,
 };
 
 export const VERDICT = {
-    PERFECT: 'PERFECT',
+    NORMAL: 'NORMAL',
+    CHECK_REQUIRED: 'CHECK_REQUIRED',
     FAULT: 'FAULT',
+    // Legacy aliases for older saved history entries.
+    PERFECT: 'PERFECT',
     VAR_CHALLENGE: 'VAR_CHALLENGE',
 };
 

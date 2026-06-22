@@ -3,8 +3,10 @@ const HISTORY_KEY = 'nmf_history';
 export interface HistoryEntry {
   id: string;
   date: string; // ISO8601
-  verdict: string; // VERDICT.PERFECT | VERDICT.FAULT | VERDICT.VAR_CHALLENGE
-  angles: { shoulder: number; elbow: number; wrist: number };
+  verdict: string;
+  shuttlecockHeightM?: number;
+  heightDeltaM?: number;
+  angles?: { shoulder: number; elbow: number; wrist: number };
   note: string;
 }
 

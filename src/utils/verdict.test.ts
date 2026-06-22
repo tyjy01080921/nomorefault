@@ -9,51 +9,50 @@ const calibration = {
 };
 
 describe('calculateVerdict', () => {
-  it('returns PERFECT below the 1.10m threshold', () => {
+  it('returns NORMAL at or below the 1.15m service limit', () => {
     const result = calculateVerdict(
       calibration,
       { x: 0.5, y: 0.56 },
-      null,
     );
 
-    expect(result.verdict).toBe(VERDICT.PERFECT);
+    expect(result.verdict).toBe(VERDICT.NORMAL);
     expect(result.shuttlecockHeightM).toBeCloseTo(1.054, 3);
+    expect(result.heightDeltaM).toBeCloseTo(-0.096, 3);
   });
 
-  it('returns VAR_CHALLENGE between 1.10m and 1.15m', () => {
-    const result = calculateVerdict(
-      calibration,
-      { x: 0.5, y: 0.54 },
-      null,
-    );
-
-    expect(result.verdict).toBe(VERDICT.VAR_CHALLENGE);
-    expect(result.shuttlecockHeightM).toBeCloseTo(1.116, 3);
-  });
-
-  it('returns FAULT above the 1.15m threshold', () => {
+  it('returns CHECK_REQUIRED when exceeding the limit by 10cm or less', () => {
     const result = calculateVerdict(
       calibration,
       { x: 0.5, y: 0.52 },
-      null,
+    );
+
+    expect(result.verdict).toBe(VERDICT.CHECK_REQUIRED);
+    expect(result.shuttlecockHeightM).toBeCloseTo(1.178, 3);
+    expect(result.heightDeltaM).toBeCloseTo(0.028, 3);
+  });
+
+  it('returns FAULT when exceeding the limit by more than 10cm', () => {
+    const result = calculateVerdict(
+      calibration,
+      { x: 0.5, y: 0.49 },
     );
 
     expect(result.verdict).toBe(VERDICT.FAULT);
-    expect(result.shuttlecockHeightM).toBeCloseTo(1.178, 3);
+    expect(result.shuttlecockHeightM).toBeCloseTo(1.271, 3);
+    expect(result.heightDeltaM).toBeCloseTo(0.121, 3);
   });
 
-  it('falls back to VAR_CHALLENGE for invalid net calibration', () => {
+  it('falls back to CHECK_REQUIRED for invalid net calibration', () => {
     const result = calculateVerdict(
       {
         netBase: { x: 0.5, y: 0.4 },
         netTop: { x: 0.5, y: 0.9 },
         ground: { x: 0.5, y: 0.9 },
       },
-      { x: 0.5, y: 0.52 },
-      null,
+      { x: 0.5, y: 0.52 }
     );
 
-    expect(result.verdict).toBe(VERDICT.VAR_CHALLENGE);
+    expect(result.verdict).toBe(VERDICT.CHECK_REQUIRED);
     expect(result.shuttlecockHeightM).toBe(0);
   });
 });

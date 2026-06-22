@@ -1,10 +1,11 @@
-import { VERDICT } from './constants';
+import { BWF, VERDICT } from './constants';
 
 // ─── 타입 정의 ───────────────────────────────────────────────
 
 export interface ShareCardOptions {
   verdict: string;
-  angles: { shoulder: number; elbow: number; wrist: number };
+  shuttlecockHeightM?: number;
+  heightDeltaM?: number;
   frameSnapshot?: string; // base64 PNG (optional background)
 }
 
@@ -23,31 +24,60 @@ const CARD_H = 630;
 // ─── 판정별 설정 (소프트 핑크 테마) ─────────────────────────
 
 const VERDICT_CONFIG: Record<string, { label: string; color: string; sub: string }> = {
-  [VERDICT.PERFECT]: {
-    label: '통과 ✓',
+  [VERDICT.NORMAL]: {
+    label: '정상',
     color: '#30D158',
-    sub: 'BWF 서비스 기준 통과',
+    sub: '기준선 이하',
   },
   [VERDICT.FAULT]: {
-    label: 'FAULT ✕',
+    label: '폴트',
     color: '#FF453A',
-    sub: 'BWF 서비스 폴트',
+    sub: '기준선 10cm 초과',
+  },
+  [VERDICT.CHECK_REQUIRED]: {
+    label: '확인 필요',
+    color: '#FF9F0A',
+    sub: '기준선 초과 10cm 이내',
+  },
+  [VERDICT.PERFECT]: {
+    label: '정상',
+    color: '#30D158',
+    sub: '기준선 이하',
   },
   [VERDICT.VAR_CHALLENGE]: {
-    label: 'VAR ❓',
+    label: '확인 필요',
     color: '#FF9F0A',
-    sub: '재검토 필요',
+    sub: '기준점 오차 확인 필요',
   },
 };
 
 function getConfig(verdict: string) {
-  return VERDICT_CONFIG[verdict] ?? VERDICT_CONFIG[VERDICT.VAR_CHALLENGE];
+  return VERDICT_CONFIG[verdict] ?? VERDICT_CONFIG[VERDICT.CHECK_REQUIRED];
+}
+
+function formatHeightSummary(heightM?: number, deltaM?: number): string {
+  if (typeof heightM !== 'number' || !Number.isFinite(heightM)) {
+    return `기준선 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 기준 판정`;
+  }
+
+  if (typeof deltaM !== 'number' || !Number.isFinite(deltaM)) {
+    return `감지 높이 ${heightM.toFixed(2)}m`;
+  }
+
+  const cm = Math.round(deltaM * 100);
+  const deltaText = cm === 0
+    ? '기준선과 동일'
+    : cm > 0
+      ? `기준선 +${cm}cm`
+      : `기준선 -${Math.abs(cm)}cm`;
+
+  return `감지 높이 ${heightM.toFixed(2)}m · ${deltaText}`;
 }
 
 // ─── 단일 결과 공유 카드 ─────────────────────────────────────
 
 export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
-  const { verdict, angles, frameSnapshot } = opts;
+  const { verdict, shuttlecockHeightM, heightDeltaM, frameSnapshot } = opts;
   const cfg = getConfig(verdict);
 
   const canvas = document.createElement('canvas');
@@ -99,14 +129,12 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
   ctx.fillStyle = frameSnapshot ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)';
   ctx.fillText(cfg.sub, CARD_W / 2, CARD_H / 2 + 55);
 
-  // 관절 각도
+  // 판단 기준
   ctx.font = '30px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = frameSnapshot ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.4)';
-  ctx.fillText(
-    `어깨 ${angles.shoulder.toFixed(1)}°  |  팔꿈치 ${angles.elbow.toFixed(1)}°  |  손목 ${angles.wrist.toFixed(1)}°`,
-    CARD_W / 2,
-    CARD_H / 2 + 130
-  );
+  ctx.fillText(formatHeightSummary(shuttlecockHeightM, heightDeltaM), CARD_W / 2, CARD_H / 2 + 126);
+  ctx.font = '24px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`확인 필요: 기준선 초과 ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내`, CARD_W / 2, CARD_H / 2 + 166);
 
   // 브랜드 워터마크
   ctx.font = 'bold 26px system-ui, -apple-system, sans-serif';
@@ -162,7 +190,7 @@ export async function generateComparisonCard(opts: ComparisonCardOptions): Promi
   const drawPanel = (
     cfg: ReturnType<typeof getConfig>,
     label: string,
-    angles: ShareCardOptions['angles'],
+    result: ShareCardOptions,
     left: number,
     width: number
   ) => {
@@ -188,15 +216,15 @@ export async function generateComparisonCard(opts: ComparisonCardOptions): Promi
     ctx.fillStyle = 'rgba(0,0,0,0.42)';
     ctx.fillText(cfg.sub, cx, CARD_H / 2 + 64);
 
-    // 각도 행
+    // 기준 행
     ctx.font = '22px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.fillText(`어깨 ${angles.shoulder.toFixed(1)}°`, cx, CARD_H / 2 + 126);
-    ctx.fillText(`팔꿈치 ${angles.elbow.toFixed(1)}°  손목 ${angles.wrist.toFixed(1)}°`, cx, CARD_H / 2 + 158);
+    ctx.fillText(formatHeightSummary(result.shuttlecockHeightM, result.heightDeltaM), cx, CARD_H / 2 + 126);
+    ctx.fillText(`확인 필요: +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내`, cx, CARD_H / 2 + 158);
   };
 
-  drawPanel(cfgA, labelA, resultA.angles, 0, half);
-  drawPanel(cfgB, labelB, resultB.angles, half, half);
+  drawPanel(cfgA, labelA, resultA, 0, half);
+  drawPanel(cfgB, labelB, resultB, half, half);
 
   // 중앙 VS 뱃지
   ctx.save();
