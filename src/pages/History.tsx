@@ -8,11 +8,11 @@ import { generateComparisonCard, shareCard } from '../utils/shareCard';
 // ─── 상수 ────────────────────────────────────────────────────
 
 const VERDICT_LABEL: Record<string, { short: string; color: string }> = {
-  [VERDICT.NORMAL]:         { short: '정상',      color: '#30D158' },
-  [VERDICT.CHECK_REQUIRED]: { short: '확인 필요', color: '#FF9F0A' },
-  [VERDICT.FAULT]:          { short: '폴트',      color: '#FF453A' },
-  [VERDICT.PERFECT]:        { short: '정상',      color: '#30D158' },
-  [VERDICT.VAR_CHALLENGE]:  { short: '확인 필요', color: '#FF9F0A' },
+  [VERDICT.NORMAL]:         { short: 'Good',   color: '#30D158' },
+  [VERDICT.CHECK_REQUIRED]: { short: 'Tricky', color: '#FFB020' },
+  [VERDICT.FAULT]:          { short: 'Fault',  color: '#FF453A' },
+  [VERDICT.PERFECT]:        { short: 'Good',   color: '#30D158' },
+  [VERDICT.VAR_CHALLENGE]:  { short: 'Tricky', color: '#FFB020' },
 };
 
 function formatDate(iso: string): string {
@@ -82,7 +82,7 @@ const History = () => {
         resultA: { verdict: entA.verdict, shuttlecockHeightM: entA.shuttlecockHeightM, heightDeltaM: entA.heightDeltaM },
         resultB: { verdict: entB.verdict, shuttlecockHeightM: entB.shuttlecockHeightM, heightDeltaM: entB.heightDeltaM },
       });
-      await shareCard(blob, 'No More Fault — A+B 서비스 비교');
+      await shareCard(blob, 'No More Fault — service comparison');
     } catch (e) {
       console.warn('[compare share]', e);
     } finally {
