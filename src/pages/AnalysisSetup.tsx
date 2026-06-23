@@ -372,6 +372,8 @@ const AnalysisSetup = () => {
           shuttlecockHeightM,
           heightDeltaM,
           frameSnapshot: captureFrameSnapshot(),
+          serviceLineY,
+          shuttlecockPos,
           timestamp: new Date().toISOString(),
         },
       });
