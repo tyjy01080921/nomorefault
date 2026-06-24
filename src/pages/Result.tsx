@@ -4,6 +4,7 @@ import { BWF, ROUTES, VERDICT } from '../utils/constants';
 import { useStore } from '../store/useStore';
 import { saveHistory } from '../utils/history';
 import { generateShareCard, shareCard } from '../utils/shareCard';
+import type { CalibrationConfidence, CalibrationMode } from '../utils/verdict';
 
 interface ResultState {
   verdict: string;
@@ -11,7 +12,14 @@ interface ResultState {
   heightDeltaM?: number;
   frameSnapshot?: string;
   serviceLineY?: number | null;
+  netServiceLineY?: number | null;
+  playerServiceLineY?: number | null;
   shuttlecockPos?: NormalizedPoint | null;
+  calibrationMode?: CalibrationMode;
+  netBasedHeightM?: number;
+  playerBasedHeightM?: number;
+  heightDifferenceCm?: number;
+  confidence?: CalibrationConfidence;
   timestamp: string;
 }
 
@@ -43,6 +51,19 @@ const formatDeltaCm = (value?: number) => {
 
 const toPercent = (value: number) => `${Math.max(0, Math.min(1, value)) * 100}%`;
 
+const getCalibrationLabel = (mode: CalibrationMode | undefined, language: 'ko' | 'en') => {
+  if (mode === 'playerHeight') return language === 'ko' ? '선수 키 기준' : 'Player height';
+  if (mode === 'combined') return language === 'ko' ? '두 기준 비교' : 'Combined check';
+  return language === 'ko' ? '네트 기둥 기준' : 'Net post';
+};
+
+const getConfidenceLabel = (confidence: CalibrationConfidence | undefined, language: 'ko' | 'en') => {
+  if (confidence === 'high') return language === 'ko' ? '높음' : 'High';
+  if (confidence === 'medium') return language === 'ko' ? '확인 필요' : 'Check';
+  if (confidence === 'low') return language === 'ko' ? '재확인 권장' : 'Recheck';
+  return '-';
+};
+
 const Result = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,7 +77,14 @@ const Result = () => {
   const shuttlecockHeightM = state?.shuttlecockHeightM;
   const heightDeltaM = state?.heightDeltaM;
   const serviceLineY = state?.serviceLineY;
+  const netServiceLineY = state?.netServiceLineY;
+  const playerServiceLineY = state?.playerServiceLineY;
   const shuttlecockPos = state?.shuttlecockPos;
+  const calibrationMode = state?.calibrationMode ?? 'netPost';
+  const netBasedHeightM = state?.netBasedHeightM;
+  const playerBasedHeightM = state?.playerBasedHeightM;
+  const heightDifferenceCm = state?.heightDifferenceCm;
+  const confidence = state?.confidence;
   const timestamp = state?.timestamp ?? new Date().toISOString();
 
   const display = VERDICT_DISPLAY[verdict] ?? VERDICT_DISPLAY[VERDICT.CHECK_REQUIRED];
@@ -86,6 +114,75 @@ const Result = () => {
       setSharing(false);
     }
   };
+
+  const resultLineMarkers = calibrationMode === 'combined'
+    ? [
+      ...(typeof netServiceLineY === 'number' && Number.isFinite(netServiceLineY)
+        ? [{ key: 'net', y: netServiceLineY, label: language === 'ko' ? '기둥 1.15m' : 'Net 1.15m', color: 'rgba(255, 176, 32, 0.95)' }]
+        : []),
+      ...(typeof playerServiceLineY === 'number' && Number.isFinite(playerServiceLineY)
+        ? [{ key: 'player', y: playerServiceLineY, label: language === 'ko' ? '키 1.15m' : 'Height 1.15m', color: 'rgba(50, 173, 230, 0.95)' }]
+        : []),
+    ]
+    : (typeof serviceLineY === 'number' && Number.isFinite(serviceLineY)
+      ? [{
+        key: calibrationMode,
+        y: serviceLineY,
+        label: calibrationMode === 'playerHeight'
+          ? (language === 'ko' ? '키 1.15m' : 'Height 1.15m')
+          : (language === 'ko' ? '기둥 1.15m' : 'Net 1.15m'),
+        color: calibrationMode === 'playerHeight' ? 'rgba(50, 173, 230, 0.95)' : 'rgba(255, 176, 32, 0.95)',
+      }]
+      : []);
+  const detailItems = [
+    {
+      label: language === 'ko' ? '판정 기준' : 'Calibration',
+      value: getCalibrationLabel(calibrationMode, language),
+    },
+    {
+      label: language === 'ko' ? '감지 높이' : 'Detected height',
+      value: formatMeters(shuttlecockHeightM),
+    },
+    {
+      label: language === 'ko' ? '기준선 대비' : 'Against limit',
+      value: formatDeltaCm(heightDeltaM),
+    },
+    ...(calibrationMode === 'combined'
+      ? [
+        {
+          label: language === 'ko' ? '기둥 기준' : 'Net based',
+          value: formatMeters(netBasedHeightM),
+        },
+        {
+          label: language === 'ko' ? '키 기준' : 'Height based',
+          value: formatMeters(playerBasedHeightM),
+        },
+        {
+          label: language === 'ko' ? '기준 차이' : 'Reference gap',
+          value: typeof heightDifferenceCm === 'number' ? `${heightDifferenceCm}cm` : '-',
+        },
+        {
+          label: language === 'ko' ? '신뢰도' : 'Confidence',
+          value: getConfidenceLabel(confidence, language),
+        },
+      ]
+      : []),
+    {
+      label: language === 'ko' ? 'Tricky 구간' : 'Tricky zone',
+      value: language === 'ko' ? '초과 10cm 이내' : 'within +10cm',
+    },
+  ];
+  const resultExplanation = calibrationMode === 'playerHeight'
+    ? (language === 'ko'
+      ? `기준선은 입력한 선수 키와 보정한 머리/발 기준점으로 계산한 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 추정선입니다. 자세와 촬영 각도 오차를 고려해 기준선 초과 ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내는 Tricky로 표시합니다.`
+      : `The guide is an estimated ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m line from the entered player height and adjusted body points. To account for posture and camera angle error, up to ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm above the guide is marked Tricky.`)
+    : calibrationMode === 'combined'
+      ? (language === 'ko'
+        ? `네트 기둥 기준과 선수 키 기준을 각각 계산해 비교했습니다. 두 기준 차이가 크면 최종 판정은 기준점 재확인이 필요한 Tricky로 표시합니다.`
+        : `The net-post and player-height references were calculated separately and compared. When the gap is large, the final verdict is marked Tricky for rechecking.`)
+      : (language === 'ko'
+        ? `기준선은 네트 기둥과 지면 기준점으로 계산한 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 추정선입니다. 촬영 각도와 기준점 오차를 고려해 기준선 초과 ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내는 Tricky로 표시합니다.`
+        : `The guide is an estimated ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m line from the net post and ground points. To account for camera and point-selection error, up to ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm above the guide is marked Tricky.`);
 
   return (
     <div style={{
@@ -118,13 +215,13 @@ const Result = () => {
               style={{ display: 'block', width: '100%', height: 'auto' }}
             />
 
-            {typeof serviceLineY === 'number' && Number.isFinite(serviceLineY) && (
-              <div style={{
+            {resultLineMarkers.map((marker) => (
+              <div key={marker.key} style={{
                 position: 'absolute',
                 left: 0,
                 right: 0,
-                top: toPercent(serviceLineY),
-                borderTop: '2px dashed rgba(255, 176, 32, 0.95)',
+                top: toPercent(marker.y),
+                borderTop: `2px dashed ${marker.color}`,
                 transform: 'translateY(-1px)',
                 filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.65))',
               }}>
@@ -134,14 +231,14 @@ const Result = () => {
                   top: -25,
                   color: '#fff',
                   background: 'rgba(0,0,0,0.56)',
-                  border: '1px solid rgba(255,176,32,0.65)',
+                  border: `1px solid ${marker.color}`,
                   borderRadius: 999,
                   padding: '3px 8px',
                   fontSize: '0.7rem',
                   fontWeight: 900,
-                }}>1.15m</span>
+                }}>{marker.label}</span>
               </div>
-            )}
+            ))}
 
             {shuttlecockPos && (
               <div style={{
@@ -219,29 +316,14 @@ const Result = () => {
           gap: '10px',
           border: '1px solid rgba(0,0,0,0.03)',
         }}>
-          {[
-            {
-              label: language === 'ko' ? '감지 높이' : 'Detected height',
-              value: formatMeters(shuttlecockHeightM),
-            },
-            {
-              label: language === 'ko' ? '기준선 대비' : 'Against limit',
-              value: formatDeltaCm(heightDeltaM),
-            },
-            {
-              label: language === 'ko' ? 'Tricky 구간' : 'Tricky zone',
-              value: language === 'ko' ? '초과 10cm 이내' : 'within +10cm',
-            },
-          ].map(({ label, value }) => (
+          {detailItems.map(({ label, value }) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 600 }}>{label}</span>
               <span style={{ color: display.color, fontWeight: 800, fontSize: '1rem', textAlign: 'right' }}>{value}</span>
             </div>
           ))}
           <div style={{ marginTop: '4px', color: 'var(--text-sub)', fontSize: '0.76rem', lineHeight: 1.5, textAlign: 'left' }}>
-            {language === 'ko'
-              ? `기준선은 네트 기둥과 지면 기준점으로 계산한 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 추정선입니다. 촬영 각도와 기준점 오차를 고려해 기준선 초과 ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm 이내는 Tricky로 표시합니다.`
-              : `The guide is an estimated ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m line from the net post and ground points. To account for camera and point-selection error, up to ${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm above the guide is marked Tricky.`}
+            {resultExplanation}
           </div>
         </div>
       </div>

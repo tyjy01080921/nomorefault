@@ -1,24 +1,44 @@
 import { create } from 'zustand';
 import type { PoseLandmark } from '../utils/pose';
+import type { CalibrationMode } from '../utils/verdict';
+
+interface AnalysisPoint {
+  x: number;
+  y: number;
+}
 
 export interface AppState {
   // Video file
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
 
+  // Calibration mode
+  calibrationMode: CalibrationMode;
+  setCalibrationMode: (mode: CalibrationMode) => void;
+
   // Net coordinates
-  netBase: { y: number; x: number } | null;
+  netBase: AnalysisPoint | null;
   setNetBase: (y: number, x: number) => void;
 
-  netTop: { y: number; x: number } | null;
+  netTop: AnalysisPoint | null;
   setNetTop: (y: number, x: number) => void;
 
-  ground: { y: number; x: number } | null;
+  ground: AnalysisPoint | null;
   setGround: (y: number, x: number) => void;
 
+  // Player height calibration
+  playerHeightCm: number | null;
+  setPlayerHeightCm: (heightCm: number | null) => void;
+
+  playerHeadTop: AnalysisPoint | null;
+  setPlayerHeadTop: (point: AnalysisPoint | null) => void;
+
+  playerFootBase: AnalysisPoint | null;
+  setPlayerFootBase: (point: AnalysisPoint | null) => void;
+
   // Shuttlecock position
-  shuttlecockPos: { x: number; y: number } | null;
-  setShuttlecockPos: (pos: { x: number; y: number }) => void;
+  shuttlecockPos: AnalysisPoint | null;
+  setShuttlecockPos: (pos: AnalysisPoint) => void;
 
   // Clear per-video analysis inputs
   resetAnalysisInputs: () => void;
@@ -47,6 +67,10 @@ export const useStore = create<AppState>((set) => ({
   videoFile: null,
   setVideoFile: (file) => set({ videoFile: file }),
 
+  // Calibration mode
+  calibrationMode: 'netPost',
+  setCalibrationMode: (mode) => set({ calibrationMode: mode }),
+
   // Net coordinates
   netBase: null,
   setNetBase: (y, x) => set({ netBase: { y, x } }),
@@ -57,15 +81,29 @@ export const useStore = create<AppState>((set) => ({
   ground: null,
   setGround: (y, x) => set({ ground: { y, x } }),
 
+  // Player height calibration
+  playerHeightCm: null,
+  setPlayerHeightCm: (heightCm) => set({ playerHeightCm: heightCm }),
+
+  playerHeadTop: null,
+  setPlayerHeadTop: (point) => set({ playerHeadTop: point }),
+
+  playerFootBase: null,
+  setPlayerFootBase: (point) => set({ playerFootBase: point }),
+
   // Shuttlecock position
   shuttlecockPos: null,
   setShuttlecockPos: (pos) => set({ shuttlecockPos: pos }),
 
   // Clear per-video analysis inputs
   resetAnalysisInputs: () => set({
+    calibrationMode: 'netPost',
     netBase: null,
     netTop: null,
     ground: null,
+    playerHeightCm: null,
+    playerHeadTop: null,
+    playerFootBase: null,
     shuttlecockPos: null,
     poseLandmarks: null,
   }),

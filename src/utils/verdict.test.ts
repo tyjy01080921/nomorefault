@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { VERDICT } from './constants';
-import { calculateServiceLineY, calculateVerdict } from './verdict';
+import { calculatePlayerServiceLineY, calculateServiceLineY, calculateVerdict } from './verdict';
 
 const calibration = {
   netBase: { x: 0.5, y: 0.9 },
@@ -70,5 +70,85 @@ describe('calculateServiceLineY', () => {
         ground: { x: 0.5, y: 0.9 },
       }),
     ).toBeNull();
+  });
+});
+
+describe('player height calibration', () => {
+  const playerCalibration = {
+    playerHeightCm: 180,
+    playerHeadTop: { x: 0.5, y: 0.2 },
+    playerFootBase: { x: 0.5, y: 0.8 },
+  };
+
+  it('projects the 1.15m service line from player height points', () => {
+    expect(calculatePlayerServiceLineY(playerCalibration)).toBeCloseTo(0.417, 3);
+  });
+
+  it('calculates verdict from the entered player height', () => {
+    const result = calculateVerdict(
+      { mode: 'playerHeight', player: playerCalibration },
+      { x: 0.5, y: 0.42 },
+    );
+
+    expect(result.verdict).toBe(VERDICT.NORMAL);
+    expect(result.shuttlecockHeightM).toBeCloseTo(1.14, 2);
+    expect(result.playerBasedHeightM).toBeCloseTo(1.14, 2);
+  });
+
+  it('falls back to CHECK_REQUIRED for invalid player calibration', () => {
+    const result = calculateVerdict(
+      {
+        mode: 'playerHeight',
+        player: {
+          playerHeightCm: 180,
+          playerHeadTop: { x: 0.5, y: 0.8 },
+          playerFootBase: { x: 0.5, y: 0.2 },
+        },
+      },
+      { x: 0.5, y: 0.42 },
+    );
+
+    expect(result.verdict).toBe(VERDICT.CHECK_REQUIRED);
+    expect(result.shuttlecockHeightM).toBe(0);
+  });
+});
+
+describe('combined calibration', () => {
+  const matchingPlayerCalibration = {
+    playerHeightCm: 180,
+    playerHeadTop: { x: 0.5, y: 0.3194 },
+    playerFootBase: { x: 0.5, y: 0.9 },
+  };
+
+  it('returns high confidence when net and player calibration agree', () => {
+    const result = calculateVerdict(
+      { mode: 'combined', net: calibration, player: matchingPlayerCalibration },
+      { x: 0.5, y: 0.52 },
+    );
+
+    expect(result.verdict).toBe(VERDICT.CHECK_REQUIRED);
+    expect(result.confidence).toBe('high');
+    expect(result.netBasedHeightM).toBeCloseTo(1.178, 3);
+    expect(result.playerBasedHeightM).toBeCloseTo(1.178, 3);
+    expect(result.heightDifferenceCm).toBe(0);
+  });
+
+  it('returns CHECK_REQUIRED with low confidence when the two calibrations disagree', () => {
+    const result = calculateVerdict(
+      {
+        mode: 'combined',
+        net: calibration,
+        player: {
+          playerHeightCm: 180,
+          playerHeadTop: { x: 0.5, y: 0.4 },
+          playerFootBase: { x: 0.5, y: 0.9 },
+        },
+      },
+      { x: 0.5, y: 0.52 },
+    );
+
+    expect(result.verdict).toBe(VERDICT.CHECK_REQUIRED);
+    expect(result.confidence).toBe('low');
+    expect(result.heightDifferenceCm).toBeGreaterThan(7);
   });
 });
