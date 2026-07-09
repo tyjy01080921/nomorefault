@@ -9,6 +9,7 @@ export interface ShareCardOptions {
   frameSnapshot?: string; // base64 PNG (optional background)
   serviceLineY?: number | null;
   shuttlecockPos?: NormalizedPoint | null;
+  language?: 'ko' | 'en';
 }
 
 interface NormalizedPoint {
@@ -28,6 +29,7 @@ export interface ComparisonCardOptions {
   labelB: string; // e.g. '롱 서비스'
   resultA: ShareCardOptions;
   resultB: ShareCardOptions;
+  language?: 'ko' | 'en';
 }
 
 // ─── 카드 규격 ────────────────────────────────────────────────
@@ -39,62 +41,90 @@ const COMPARE_CARD_H = 630;
 
 // ─── 판정별 설정 (소프트 핑크 테마) ─────────────────────────
 
-const VERDICT_CONFIG: Record<string, { label: string; color: string; sub: string }> = {
+const VERDICT_CONFIG: Record<string, { koLabel: string; enLabel: string; color: string; koSub: string; enSub: string }> = {
   [VERDICT.NORMAL]: {
-    label: 'Good',
+    koLabel: '좋아요!',
+    enLabel: 'Good',
     color: '#30D158',
-    sub: 'Below the guide',
+    koSub: '기준선 아래',
+    enSub: 'Below the guide',
   },
   [VERDICT.FAULT]: {
-    label: 'Fault',
+    koLabel: '이건 선을 넘었다..😅',
+    enLabel: 'Fault',
     color: '#FF453A',
-    sub: 'Over the +10cm zone',
+    koSub: '기준선 +10cm 초과',
+    enSub: 'Over the +10cm zone',
   },
   [VERDICT.CHECK_REQUIRED]: {
-    label: 'Tricky',
+    koLabel: '이정도는 OK?!',
+    enLabel: 'Tricky',
     color: '#FFB020',
-    sub: 'Within the +10cm zone',
+    koSub: '기준선 +10cm 이내',
+    enSub: 'Within the +10cm zone',
   },
   [VERDICT.PERFECT]: {
-    label: 'Good',
+    koLabel: '좋아요!',
+    enLabel: 'Good',
     color: '#30D158',
-    sub: 'Below the guide',
+    koSub: '기준선 아래',
+    enSub: 'Below the guide',
   },
   [VERDICT.VAR_CHALLENGE]: {
-    label: 'Tricky',
+    koLabel: '이정도는 OK?!',
+    enLabel: 'Tricky',
     color: '#FFB020',
-    sub: 'Check the reference points',
+    koSub: '기준점 재확인 필요',
+    enSub: 'Check the reference points',
   },
 };
 
-function getConfig(verdict: string) {
-  return VERDICT_CONFIG[verdict] ?? VERDICT_CONFIG[VERDICT.CHECK_REQUIRED];
+function getConfig(verdict: string, language: 'ko' | 'en' = 'en') {
+  const cfg = VERDICT_CONFIG[verdict] ?? VERDICT_CONFIG[VERDICT.CHECK_REQUIRED];
+  return {
+    label: language === 'ko' ? cfg.koLabel : cfg.enLabel,
+    color: cfg.color,
+    sub: language === 'ko' ? cfg.koSub : cfg.enSub,
+  };
 }
 
-function formatHeightSummary(heightM?: number, deltaM?: number): string {
+function formatHeightSummary(heightM?: number, deltaM?: number, language: 'ko' | 'en' = 'en'): string {
   if (typeof heightM !== 'number' || !Number.isFinite(heightM)) {
-    return `${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m guide based verdict`;
+    return language === 'ko'
+      ? `${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m 기준선 기반 판정`
+      : `${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m guide based verdict`;
   }
 
   if (typeof deltaM !== 'number' || !Number.isFinite(deltaM)) {
-    return `Detected height ${heightM.toFixed(2)}m`;
+    return language === 'ko'
+      ? `감지 높이 ${heightM.toFixed(2)}m`
+      : `Detected height ${heightM.toFixed(2)}m`;
   }
 
   const cm = Math.round(deltaM * 100);
-  const deltaText = cm === 0
-    ? 'same as guide'
-    : cm > 0
-      ? `guide +${cm}cm`
-      : `guide -${Math.abs(cm)}cm`;
+  const deltaText = language === 'ko'
+    ? (cm === 0
+      ? '기준선과 동일'
+      : cm > 0
+        ? `기준선 +${cm}cm`
+        : `기준선 -${Math.abs(cm)}cm`)
+    : (cm === 0
+      ? 'same as guide'
+      : cm > 0
+        ? `guide +${cm}cm`
+        : `guide -${Math.abs(cm)}cm`);
 
-  return `Detected ${heightM.toFixed(2)}m · ${deltaText}`;
+  return language === 'ko'
+    ? `감지 ${heightM.toFixed(2)}m · ${deltaText}`
+    : `Detected ${heightM.toFixed(2)}m · ${deltaText}`;
 }
 
 // ─── 단일 결과 공유 카드 ─────────────────────────────────────
 
 export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
   const { verdict, shuttlecockHeightM, heightDeltaM, frameSnapshot, serviceLineY, shuttlecockPos } = opts;
-  const cfg = getConfig(verdict);
+  const language = opts.language ?? 'en';
+  const cfg = getConfig(verdict, language);
 
   const canvas = document.createElement('canvas');
   canvas.width = CARD_W;
@@ -130,7 +160,7 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
   ctx.textAlign = 'right';
   ctx.font = '600 24px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.54)';
-  ctx.fillText('Service frame analysis', CARD_W - 56, 64);
+  ctx.fillText(language === 'ko' ? '서브 프레임 분석' : 'Service frame analysis', CARD_W - 56, 64);
 
   const frameRect = { x: 40, y: 118, width: CARD_W - 80, height: 960 };
   let bounds: ImageBounds = frameRect;
@@ -155,21 +185,23 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
 
   const chipX = frameRect.x + 28;
   const chipY = frameRect.y + frameRect.height - 86;
-  drawRoundedPanel(ctx, chipX, chipY, 232, 58, 29, 'rgba(8, 8, 10, 0.72)', 'rgba(255,255,255,0.22)');
+  const chipLabelFont = fitFontSize(ctx, cfg.label, 28, 16, 360, '900');
+  const chipWidth = Math.min(frameRect.width - 56, Math.max(232, ctx.measureText(cfg.label).width + 96));
+  drawRoundedPanel(ctx, chipX, chipY, chipWidth, 58, 29, 'rgba(8, 8, 10, 0.72)', 'rgba(255,255,255,0.22)');
   ctx.fillStyle = cfg.color;
   ctx.beginPath();
   ctx.arc(chipX + 34, chipY + 29, 7, 0, Math.PI * 2);
   ctx.fill();
   ctx.textAlign = 'left';
-  ctx.font = '900 28px system-ui, -apple-system, sans-serif';
+  ctx.font = `900 ${chipLabelFont}px system-ui, -apple-system, sans-serif`;
   ctx.fillStyle = '#ffffff';
   ctx.fillText(cfg.label, chipX + 54, chipY + 30);
 
   const panelY = 1110;
   drawRoundedPanel(ctx, 40, panelY, CARD_W - 80, 178, 32, 'rgba(255,255,255,0.93)');
   ctx.textAlign = 'left';
-  ctx.font = '900 52px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = cfg.color;
+  ctx.font = `900 ${fitFontSize(ctx, cfg.label, 52, 30, 430, '900')}px system-ui, -apple-system, sans-serif`;
   ctx.fillText(cfg.label, 78, panelY + 58);
   ctx.font = '700 28px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(22,22,24,0.72)';
@@ -178,17 +210,23 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
   ctx.textAlign = 'right';
   ctx.font = '800 30px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(22,22,24,0.86)';
-  ctx.fillText(formatHeightSummary(shuttlecockHeightM, heightDeltaM), CARD_W - 78, panelY + 62);
+  ctx.fillText(formatHeightSummary(shuttlecockHeightM, heightDeltaM, language), CARD_W - 78, panelY + 62);
   ctx.font = '600 23px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(22,22,24,0.58)';
-  ctx.fillText(`Guide ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m · Tricky zone +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`, CARD_W - 78, panelY + 108);
+  ctx.fillText(
+    language === 'ko'
+      ? `기준 ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m · OK?! 구간 +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`
+      : `Guide ${BWF.SERVICE_HEIGHT_LIMIT.toFixed(2)}m · Tricky zone +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`,
+    CARD_W - 78,
+    panelY + 108
+  );
 
   ctx.textAlign = 'left';
   ctx.font = '600 22px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.58)';
-  ctx.fillText('dashed line: service guide', 56, CARD_H - 40);
+  ctx.fillText(language === 'ko' ? '점선: 서비스 기준선' : 'dashed line: service guide', 56, CARD_H - 40);
   ctx.textAlign = 'right';
-  ctx.fillText('circle: shuttle position', CARD_W - 56, CARD_H - 40);
+  ctx.fillText(language === 'ko' ? '원: 셔틀콕 위치' : 'circle: shuttle position', CARD_W - 56, CARD_H - 40);
 
   return blobFrom(canvas);
 }
@@ -201,8 +239,9 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
  */
 export async function generateComparisonCard(opts: ComparisonCardOptions): Promise<Blob> {
   const { labelA, labelB, resultA, resultB } = opts;
-  const cfgA = getConfig(resultA.verdict);
-  const cfgB = getConfig(resultB.verdict);
+  const language = opts.language ?? 'en';
+  const cfgA = getConfig(resultA.verdict, language);
+  const cfgB = getConfig(resultB.verdict, language);
 
   const canvas = document.createElement('canvas');
   canvas.width = COMPARE_CARD_W;
@@ -252,7 +291,7 @@ export async function generateComparisonCard(opts: ComparisonCardOptions): Promi
     ctx.fillText(label, cx, pad + 18);
 
     // 판정 뱃지
-    ctx.font = 'bold 100px system-ui, -apple-system, sans-serif';
+    ctx.font = `bold ${fitFontSize(ctx, cfg.label, 100, 42, width - 86, 'bold')}px system-ui, -apple-system, sans-serif`;
     ctx.fillStyle = cfg.color;
     ctx.shadowColor = `${cfg.color}55`;
     ctx.shadowBlur = 18;
@@ -267,8 +306,14 @@ export async function generateComparisonCard(opts: ComparisonCardOptions): Promi
     // 기준 행
     ctx.font = '22px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.fillText(formatHeightSummary(result.shuttlecockHeightM, result.heightDeltaM), cx, COMPARE_CARD_H / 2 + 126);
-    ctx.fillText(`Tricky zone: +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`, cx, COMPARE_CARD_H / 2 + 158);
+    ctx.fillText(formatHeightSummary(result.shuttlecockHeightM, result.heightDeltaM, language), cx, COMPARE_CARD_H / 2 + 126);
+    ctx.fillText(
+      language === 'ko'
+        ? `OK?! 구간: +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`
+        : `Tricky zone: +${Math.round(BWF.CHECK_REQUIRED_MARGIN * 100)}cm`,
+      cx,
+      COMPARE_CARD_H / 2 + 158
+    );
   };
 
   drawPanel(cfgA, labelA, resultA, 0, half);
@@ -294,7 +339,7 @@ export async function generateComparisonCard(opts: ComparisonCardOptions): Promi
   ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = 'rgba(255, 159, 180, 0.8)';
   ctx.textAlign = 'center';
-  ctx.fillText('No More Fault — service comparison', COMPARE_CARD_W / 2, COMPARE_CARD_H - 28);
+  ctx.fillText('No More Fault — serve history', COMPARE_CARD_W / 2, COMPARE_CARD_H - 28);
 
   return blobFrom(canvas);
 }
@@ -433,6 +478,23 @@ function drawRoundedPanel(
     ctx.stroke();
   }
   ctx.restore();
+}
+
+function fitFontSize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxSize: number,
+  minSize: number,
+  maxWidth: number,
+  weight = '700'
+): number {
+  let size = maxSize;
+  while (size > minSize) {
+    ctx.font = `${weight} ${size}px system-ui, -apple-system, sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 2;
+  }
+  return size;
 }
 
 function roundedRect(

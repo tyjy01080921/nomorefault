@@ -1,26 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, PointerEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, GitCompareArrows, RotateCcw, Ruler, UserRound } from 'lucide-react';
+import { ArrowLeft, Check, RotateCcw } from 'lucide-react';
 import { ROUTES } from '../utils/constants';
 import { useStore, AppState } from '../store/useStore';
 import { getPoseLandmarker, drawSkeleton } from '../services/mediapipe';
 import {
+  calculateGuideConfidencePercent,
   calculatePlayerServiceLineY,
-  calculateServiceLineY,
   calculateVerdict,
   type CalibrationInput,
-  type CalibrationMode,
 } from '../utils/verdict';
 import type { PoseLandmark } from '../utils/pose';
+import { selectServerPose, type ServerPoseTrackingState } from '../utils/serverPose';
 
-type AnnotationStep = 'impact' | 'method' | 'playerHeight' | 'netBase' | 'netTop' | 'ground' | 'playerHeadTop' | 'playerFootBase' | 'shuttlecock' | 'ready';
-type PointStep = 'netBase' | 'netTop' | 'ground' | 'playerHeadTop' | 'playerFootBase' | 'shuttlecock';
-type WorkflowStep = Exclude<AnnotationStep, 'impact' | 'method' | 'ready'>;
+type AnnotationStep = 'referenceFrame' | 'playerHeight' | 'playerHeadTop' | 'playerFootBase' | 'impact' | 'shuttlecock' | 'ready';
+type FrameStep = 'referenceFrame' | 'impact';
+type PointStep = 'playerHeadTop' | 'playerFootBase' | 'shuttlecock';
+type WorkflowStep = Exclude<AnnotationStep, 'ready'>;
 
 interface Point {
   x: number;
   y: number;
+}
+
+interface PlayerBodyPoints {
+  playerHeadTop: Point;
+  playerFootBase: Point;
 }
 
 interface OverlayLayout {
@@ -31,33 +37,31 @@ interface OverlayLayout {
 }
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+const pointDistance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const precisionZoom = 4;
 const playerHeightMinCm = 120;
 const playerHeightMaxCm = 230;
 const darkButtonText = '#2d1c22';
+const poseGuideReviewThresholdCm = 10;
 
 const isPointStep = (step: AnnotationStep): step is PointStep => (
-  step === 'netBase'
-  || step === 'netTop'
-  || step === 'ground'
-  || step === 'playerHeadTop'
+  step === 'playerHeadTop'
   || step === 'playerFootBase'
   || step === 'shuttlecock'
 );
 
-const getWorkflowStepsForMode = (mode: CalibrationMode): WorkflowStep[] => {
-  if (mode === 'netPost') return ['netBase', 'netTop', 'ground', 'shuttlecock'];
-  if (mode === 'playerHeight') return ['playerHeight', 'playerHeadTop', 'playerFootBase', 'shuttlecock'];
-  return ['netBase', 'netTop', 'ground', 'playerHeight', 'playerHeadTop', 'playerFootBase', 'shuttlecock'];
-};
-
-const getFirstWorkflowStepForMode = (mode: CalibrationMode): AnnotationStep => (
-  getWorkflowStepsForMode(mode)[0] ?? 'ready'
+const isFrameStep = (step: AnnotationStep): step is FrameStep => (
+  step === 'referenceFrame' || step === 'impact'
 );
 
-const isPointRelevantForMode = (step: PointStep, mode: CalibrationMode) => (
-  getWorkflowStepsForMode(mode).includes(step)
-);
+const workflowSteps: WorkflowStep[] = [
+  'referenceFrame',
+  'playerHeight',
+  'playerHeadTop',
+  'playerFootBase',
+  'impact',
+  'shuttlecock',
+];
 
 const getVisibleLandmark = (landmarks: PoseLandmark[] | null, index: number) => {
   const landmark = landmarks?.[index];
@@ -98,20 +102,12 @@ const AnalysisSetup = () => {
   const navigate = useNavigate();
   const {
     videoFile,
-    calibrationMode,
     shuttlecockPos,
-    netBase,
-    netTop,
-    ground,
     playerHeightCm,
     playerHeadTop,
     playerFootBase,
     poseLandmarks,
-    setCalibrationMode,
     setPoseLandmarks,
-    setNetBase,
-    setNetTop,
-    setGround,
     setPlayerHeightCm,
     setPlayerHeadTop,
     setPlayerFootBase,
@@ -123,14 +119,20 @@ const AnalysisSetup = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
+  const poseTrackingRef = useRef<ServerPoseTrackingState | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [annotationStep, setAnnotationStep] = useState<AnnotationStep>('impact');
+  const [annotationStep, setAnnotationStep] = useState<AnnotationStep>('referenceFrame');
   const [draftPoint, setDraftPoint] = useState<Point | null>(null);
   const [isEditingPoint, setIsEditingPoint] = useState(false);
   const [framePreviewUrl, setFramePreviewUrl] = useState<string | null>(null);
+  const [referenceFrameUrl, setReferenceFrameUrl] = useState<string | null>(null);
+  const [impactFrameUrl, setImpactFrameUrl] = useState<string | null>(null);
+  const [referenceTime, setReferenceTime] = useState<number | null>(null);
+  const [impactTime, setImpactTime] = useState<number | null>(null);
+  const [impactPosePoints, setImpactPosePoints] = useState<PlayerBodyPoints | null>(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState('16 / 9');
   const [overlayLayout, setOverlayLayout] = useState<OverlayLayout>({
     left: 0,
@@ -164,10 +166,16 @@ const AnalysisSetup = () => {
   }, [navigate, videoFile]);
 
   useEffect(() => {
-    setAnnotationStep('impact');
+    setAnnotationStep('referenceFrame');
     setDraftPoint(null);
     setIsEditingPoint(false);
     setFramePreviewUrl(null);
+    setReferenceFrameUrl(null);
+    setImpactFrameUrl(null);
+    setReferenceTime(null);
+    setImpactTime(null);
+    setImpactPosePoints(null);
+    poseTrackingRef.current = null;
   }, [videoUrl]);
 
   const updateOverlayLayout = useCallback(() => {
@@ -266,8 +274,16 @@ const AnalysisSetup = () => {
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           if (results.landmarks && results.landmarks.length > 0) {
-            drawSkeleton(ctx, results.landmarks[0], canvas.width, canvas.height);
-            setPoseLandmarks(results.landmarks[0]);
+            const selected = selectServerPose(results.landmarks, poseTrackingRef.current, {
+              playerHeadTop,
+              playerFootBase,
+            });
+            poseTrackingRef.current = selected.nextState;
+
+            if (selected.landmarks) {
+              drawSkeleton(ctx, selected.landmarks, canvas.width, canvas.height);
+              setPoseLandmarks(selected.landmarks);
+            }
           }
         }
       } catch (e) {
@@ -279,18 +295,52 @@ const AnalysisSetup = () => {
 
     const interval = setInterval(processFrame, 100);
     return () => clearInterval(interval);
-  }, [setPoseLandmarks, videoUrl]);
+  }, [playerFootBase, playerHeadTop, setPoseLandmarks, videoUrl]);
 
-  const handleConfirmImpactFrame = () => {
+  const getPointFrameSnapshot = useCallback((step: PointStep) => (
+    step === 'shuttlecock' ? impactFrameUrl : referenceFrameUrl
+  ), [impactFrameUrl, referenceFrameUrl]);
+
+  const getPointFrameTime = useCallback((step: PointStep) => (
+    step === 'shuttlecock' ? impactTime : referenceTime
+  ), [impactTime, referenceTime]);
+
+  const preparePointFrame = useCallback((step: PointStep) => {
+    const targetTime = getPointFrameTime(step);
+    if (typeof targetTime === 'number') {
+      seekTo(targetTime);
+    }
+    setFramePreviewUrl(getPointFrameSnapshot(step));
+  }, [getPointFrameSnapshot, getPointFrameTime, seekTo]);
+
+  const handleConfirmFrame = () => {
+    if (!isFrameStep(annotationStep)) return;
+
     const video = videoRef.current;
+    const selectedTime = video?.currentTime ?? currentTime;
+    const snapshot = captureFrameSnapshot();
+
+    if (!snapshot) return;
+
     if (video) {
       video.pause();
-      setCurrentTime(video.currentTime);
     }
-    setFramePreviewUrl(captureFrameSnapshot() ?? null);
+    setCurrentTime(selectedTime);
+    setFramePreviewUrl(snapshot);
     setDraftPoint(null);
     setIsEditingPoint(false);
-    setAnnotationStep('method');
+
+    if (annotationStep === 'referenceFrame') {
+      setReferenceFrameUrl(snapshot);
+      setReferenceTime(selectedTime);
+      setAnnotationStep('playerHeight');
+    } else {
+      setImpactFrameUrl(snapshot);
+      setImpactTime(selectedTime);
+      setImpactPosePoints(estimatedPlayerPoints);
+      setAnnotationStep('shuttlecock');
+    }
+
     requestAnimationFrame(updateOverlayLayout);
   };
 
@@ -298,8 +348,14 @@ const AnalysisSetup = () => {
     resetAnalysisInputs();
     setDraftPoint(null);
     setFramePreviewUrl(null);
+    setReferenceFrameUrl(null);
+    setImpactFrameUrl(null);
+    setReferenceTime(null);
+    setImpactTime(null);
+    setImpactPosePoints(null);
     setIsEditingPoint(false);
-    setAnnotationStep('impact');
+    poseTrackingRef.current = null;
+    setAnnotationStep('referenceFrame');
   };
 
   const getVideoPointFromClient = useCallback((clientX: number, clientY: number) => {
@@ -347,13 +403,7 @@ const AnalysisSetup = () => {
   };
 
   const applyAnnotationPoint = (step: PointStep, point: Point) => {
-    if (step === 'netBase') {
-      setNetBase(point.y, point.x);
-    } else if (step === 'netTop') {
-      setNetTop(point.y, point.x);
-    } else if (step === 'ground') {
-      setGround(point.y, point.x);
-    } else if (step === 'playerHeadTop') {
+    if (step === 'playerHeadTop') {
       setPlayerHeadTop(point);
     } else if (step === 'playerFootBase') {
       setPlayerFootBase(point);
@@ -363,9 +413,6 @@ const AnalysisSetup = () => {
   };
 
   const getStoredPoint = (step: PointStep): Point | null => {
-    if (step === 'netBase') return netBase;
-    if (step === 'netTop') return netTop;
-    if (step === 'ground') return ground;
     if (step === 'playerHeadTop') return playerHeadTop;
     if (step === 'playerFootBase') return playerFootBase;
     return shuttlecockPos;
@@ -380,9 +427,6 @@ const AnalysisSetup = () => {
   };
 
   const getNextPoints = (step?: PointStep, point?: Point): Record<PointStep, Point | null> => ({
-    netBase: step === 'netBase' ? point ?? null : netBase,
-    netTop: step === 'netTop' ? point ?? null : netTop,
-    ground: step === 'ground' ? point ?? null : ground,
     playerHeadTop: step === 'playerHeadTop' ? point ?? null : playerHeadTop,
     playerFootBase: step === 'playerFootBase' ? point ?? null : playerFootBase,
     shuttlecock: step === 'shuttlecock' ? point ?? null : shuttlecockPos,
@@ -392,6 +436,8 @@ const AnalysisSetup = () => {
     step: WorkflowStep,
     points: Record<PointStep, Point | null> = getNextPoints()
   ) => {
+    if (step === 'referenceFrame') return Boolean(referenceFrameUrl);
+    if (step === 'impact') return Boolean(impactFrameUrl);
     if (step === 'playerHeight') return isPlayerHeightValid;
     return Boolean(points[step]);
   };
@@ -400,7 +446,6 @@ const AnalysisSetup = () => {
     currentStep: WorkflowStep,
     points: Record<PointStep, Point | null> = getNextPoints()
   ): AnnotationStep => {
-    const workflowSteps = getWorkflowStepsForMode(calibrationMode);
     const startIndex = workflowSteps.indexOf(currentStep) + 1;
     const nextIncomplete = workflowSteps
       .slice(startIndex)
@@ -411,24 +456,12 @@ const AnalysisSetup = () => {
 
   const getNextStepAfterConfirm = (step: PointStep, point: Point): AnnotationStep => {
     const nextPoints = getNextPoints(step, point);
-    const workflowSteps = getWorkflowStepsForMode(calibrationMode);
 
     if (isEditingPoint && workflowSteps.every((key) => isWorkflowStepComplete(key, nextPoints))) {
       return 'ready';
     }
 
     return getNextWorkflowStep(step, nextPoints);
-  };
-
-  const handleSelectCalibrationMode = (mode: CalibrationMode) => {
-    if (isAnalyzing) return;
-
-    const nextStep = getFirstWorkflowStepForMode(mode);
-    setCalibrationMode(mode);
-    setDraftPoint(isPointStep(nextStep) ? getSuggestedPoint(nextStep) : null);
-    setIsEditingPoint(false);
-    setAnnotationStep(nextStep);
-    requestAnimationFrame(updateOverlayLayout);
   };
 
   const handlePlayerHeightChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -445,6 +478,9 @@ const AnalysisSetup = () => {
     if (!isPlayerHeightValid) return;
 
     const nextStep = getNextWorkflowStep('playerHeight');
+    if (isPointStep(nextStep)) {
+      preparePointFrame(nextStep);
+    }
     setDraftPoint(isPointStep(nextStep) ? getSuggestedPoint(nextStep) : null);
     setIsEditingPoint(false);
     setAnnotationStep(nextStep);
@@ -455,8 +491,30 @@ const AnalysisSetup = () => {
     if (!isPointStep(annotationStep) || !draftPoint) return;
 
     applyAnnotationPoint(annotationStep, draftPoint);
+    if (annotationStep === 'playerHeadTop' || annotationStep === 'playerFootBase') {
+      poseTrackingRef.current = null;
+    }
     const nextStep = getNextStepAfterConfirm(annotationStep, draftPoint);
-    setDraftPoint(isPointStep(nextStep) ? getSuggestedPoint(nextStep) : null);
+    const manualHeadCorrection = (
+      annotationStep === 'playerHeadTop'
+      && nextStep === 'playerFootBase'
+      && estimatedPlayerPoints?.playerHeadTop
+      && pointDistance(draftPoint, estimatedPlayerPoints.playerHeadTop) > 0.04
+    );
+    setDraftPoint(isPointStep(nextStep) && !manualHeadCorrection ? getSuggestedPoint(nextStep) : null);
+    if (isPointStep(nextStep)) {
+      preparePointFrame(nextStep);
+    } else if (nextStep === 'impact') {
+      setFramePreviewUrl(impactFrameUrl);
+      if (typeof impactTime === 'number') {
+        seekTo(impactTime);
+      }
+    } else if (nextStep === 'ready') {
+      setFramePreviewUrl(impactFrameUrl);
+      if (typeof impactTime === 'number') {
+        seekTo(impactTime);
+      }
+    }
     setIsEditingPoint(false);
     setAnnotationStep(nextStep);
   };
@@ -469,6 +527,7 @@ const AnalysisSetup = () => {
     if (isAnalyzing) return;
 
     setAnnotationStep(step);
+    preparePointFrame(step);
     setDraftPoint(getStoredPoint(step));
     setIsEditingPoint(true);
     requestAnimationFrame(updateOverlayLayout);
@@ -495,34 +554,63 @@ const AnalysisSetup = () => {
     y: overlayLayout.top + point.y * overlayLayout.height,
   }), [overlayLayout]);
 
-  const netCalibration = netBase && netTop && ground
-    ? { netBase, netTop, ground }
-    : null;
   const playerCalibration = isPlayerHeightValid && typeof playerHeightCm === 'number' && playerHeadTop && playerFootBase
-    ? { playerHeightCm, playerHeadTop, playerFootBase }
+    ? {
+      playerHeightCm,
+      playerHeadTop,
+      playerFootBase,
+    }
     : null;
-  const netServiceLineY = netCalibration ? calculateServiceLineY(netCalibration) : null;
   const playerServiceLineY = playerCalibration ? calculatePlayerServiceLineY(playerCalibration) : null;
-  const serviceLineY = calibrationMode === 'playerHeight' ? playerServiceLineY : netServiceLineY;
 
-  let analysisCalibration: CalibrationInput | null = null;
-  if (calibrationMode === 'netPost' && netCalibration) {
-    analysisCalibration = { mode: 'netPost', net: netCalibration };
-  } else if (calibrationMode === 'playerHeight' && playerCalibration) {
-    analysisCalibration = { mode: 'playerHeight', player: playerCalibration };
-  } else if (calibrationMode === 'combined' && netCalibration && playerCalibration) {
-    analysisCalibration = { mode: 'combined', net: netCalibration, player: playerCalibration };
-  }
+  const previewPosePoints = annotationStep === 'impact'
+    ? estimatedPlayerPoints
+    : impactPosePoints;
+  const poseGuideCalibration = isPlayerHeightValid && typeof playerHeightCm === 'number' && previewPosePoints
+    ? { playerHeightCm, ...previewPosePoints }
+    : null;
+  const poseServiceLineY = poseGuideCalibration
+    ? calculatePlayerServiceLineY(poseGuideCalibration)
+    : null;
+  const referencePlayerNorm = playerHeadTop && playerFootBase
+    ? playerFootBase.y - playerHeadTop.y
+    : null;
+  const poseGuideGapCm = (
+    typeof playerHeightCm === 'number'
+    && referencePlayerNorm !== null
+    && referencePlayerNorm > 0
+    && playerServiceLineY !== null
+    && poseServiceLineY !== null
+  )
+    ? Math.round(Math.abs(poseServiceLineY - playerServiceLineY) / referencePlayerNorm * playerHeightCm)
+    : null;
+  const guideConfidencePercent = calculateGuideConfidencePercent(poseGuideGapCm);
 
+  const analysisCalibration: CalibrationInput | null = playerCalibration
+    ? { mode: 'playerHeight', player: playerCalibration }
+    : null;
+
+  const shouldShowServiceLine = (
+    annotationStep === 'impact'
+    || annotationStep === 'shuttlecock'
+    || annotationStep === 'ready'
+  );
   const serviceLineMarkers = [
-    ...(calibrationMode !== 'playerHeight' && netServiceLineY !== null
-      ? [{ key: 'net', y: netServiceLineY, color: 'var(--accent-color)', label: language === 'ko' ? '기둥 1.15m' : 'Net 1.15m' }]
+    ...(shouldShowServiceLine && playerServiceLineY !== null
+      ? [{ key: 'player', y: playerServiceLineY, color: '#32ADE6', label: language === 'ko' ? '고정 1.15m' : 'Fixed 1.15m' }]
       : []),
-    ...(calibrationMode !== 'netPost' && playerServiceLineY !== null
-      ? [{ key: 'player', y: playerServiceLineY, color: '#32ADE6', label: language === 'ko' ? '키 1.15m' : 'Height 1.15m' }]
+    ...(shouldShowServiceLine && poseServiceLineY !== null
+      ? [{ key: 'pose', y: poseServiceLineY, color: '#FFB020', label: language === 'ko' ? '포즈 보조선' : 'Pose guide' }]
       : []),
   ];
-  const canAnalyze = annotationStep === 'ready' && analysisCalibration !== null && shuttlecockPos !== null;
+  const canAnalyze = (
+    annotationStep === 'ready'
+    && analysisCalibration !== null
+    && playerServiceLineY !== null
+    && shuttlecockPos !== null
+    && impactFrameUrl !== null
+  );
+  const isChoosingFrame = isFrameStep(annotationStep);
   const activePointStep = isPointStep(annotationStep) ? annotationStep : null;
   const projectedDraftPoint = draftPoint ? projectVideoPoint(draftPoint) : null;
 
@@ -536,10 +624,13 @@ const AnalysisSetup = () => {
       navigate(ROUTES.RESULT, {
         state: {
           ...result,
-          frameSnapshot: captureFrameSnapshot(),
-          serviceLineY,
-          netServiceLineY,
+          frameSnapshot: impactFrameUrl,
+          serviceLineY: playerServiceLineY,
           playerServiceLineY,
+          poseServiceLineY,
+          poseGuideGapCm,
+          poseGuideNeedsReview: typeof poseGuideGapCm === 'number' && poseGuideGapCm > poseGuideReviewThresholdCm,
+          guideConfidencePercent,
           shuttlecockPos,
           timestamp: new Date().toISOString(),
         },
@@ -548,132 +639,91 @@ const AnalysisSetup = () => {
   };
 
   const stepCopy: Record<AnnotationStep, { title: string; body: string }> = {
-    impact: {
-      title: language === 'ko' ? '타구 순간 선택' : 'Choose Impact Frame',
+    referenceFrame: {
+      title: language === 'ko' ? '기준 자세 고르기' : 'Choose Reference Pose',
       body: language === 'ko'
-        ? '셔틀콕을 치는 순간으로 영상을 맞춘 뒤 프레임을 저장하세요.'
-        : 'Scrub to the shuttle contact moment, then save the frame.',
+        ? '서비스 전 1초간 똑바로 선 장면으로 영상을 맞춘 뒤 선택하세요.'
+        : 'Scrub to the moment where the server stands upright for 1 second, then save it.',
     },
-    method: {
-      title: language === 'ko' ? '판정 기준 선택' : 'Choose Calibration',
+    impact: {
+      title: language === 'ko' ? '타구 순간 고르기' : 'Choose Impact Frame',
       body: language === 'ko'
-        ? '촬영 구도에 맞는 판정 기준을 선택하세요.'
-        : 'Choose the calibration method that fits this video.',
+        ? '셔틀콕을 치는 순간으로 영상을 맞춘 뒤 이 순간을 선택하세요.'
+        : 'Scrub to the shuttle contact moment, then save the frame.',
     },
     playerHeight: {
       title: language === 'ko' ? '선수 키 입력' : 'Player Height',
       body: language === 'ko'
-        ? '서비스하는 선수의 실제 키를 cm로 입력하세요.'
+        ? '서비스하는 선수의 실제 키를 cm로 입력하세요. 신발 굽 차이는 10cm OK?! 구간 안에서 흡수됩니다.'
         : 'Enter the server height in centimeters.',
     },
-    netBase: {
-      title: language === 'ko' ? '네트 기둥 하단' : 'Net Post Base',
-      body: language === 'ko'
-        ? '영상 속 네트 기둥이 바닥과 만나는 지점을 누르세요.'
-        : 'Tap where the net post meets the floor.',
-    },
-    netTop: {
-      title: language === 'ko' ? '네트 기둥 상단' : 'Net Post Top',
-      body: language === 'ko'
-        ? '같은 기둥의 상단 지점을 누르세요.'
-        : 'Tap the top of the same net post.',
-    },
-    ground: {
-      title: language === 'ko' ? '서버 지면' : 'Server Ground',
-      body: language === 'ko'
-        ? '서비스하는 선수의 발 근처 바닥 높이를 누르세요.'
-        : 'Tap the floor level near the server.',
-    },
     playerHeadTop: {
-      title: language === 'ko' ? '머리 상단' : 'Head Top',
+      title: language === 'ko' ? '머리 맨 위' : 'Head Top',
       body: language === 'ko'
-        ? '자동 후보를 확인하고 실제 머리 상단으로 맞추세요.'
+        ? '기준 자세 캡처에서 실제 머리 맨 위로 맞추세요.'
         : 'Check the suggested point and adjust it to the top of the head.',
     },
     playerFootBase: {
-      title: language === 'ko' ? '발바닥 기준점' : 'Foot Base',
+      title: language === 'ko' ? '바닥에 닿은 발' : 'Foot Base',
       body: language === 'ko'
-        ? '자동 후보를 확인하고 바닥에 닿은 발바닥 지점으로 맞추세요.'
+        ? '기준 자세 캡처에서 바닥에 닿은 발바닥 지점으로 맞추세요.'
         : 'Check the suggested point and adjust it to the foot on the floor.',
     },
     shuttlecock: {
-      title: language === 'ko' ? '셔틀콕 위치' : 'Shuttle Position',
+      title: language === 'ko' ? '셔틀콕 헤드 끝' : 'Shuttle Head Tip',
       body: language === 'ko'
-        ? '타구 순간의 셔틀콕 중심을 누르세요.'
-        : 'Tap the shuttle center at impact.',
+        ? '타구 순간의 셔틀콕 헤드 끝을 누르세요.'
+        : 'Tap the shuttle head tip at impact.',
     },
     ready: {
       title: language === 'ko' ? '분석 준비 완료' : 'Ready to Analyze',
       body: language === 'ko'
-        ? '1.15m 기준선을 확인한 뒤 분석을 시작하세요.'
-        : 'Check the 1.15m reference line, then start analysis.',
+        ? '기준 자세로 만든 고정 1.15m 선과 타구 순간 포즈 보조선을 비교해 확인하세요.'
+        : 'Check the fixed 1.15m line from the reference pose against the impact pose guide.',
     },
   };
 
-  const workflowSteps = annotationStep === 'method' ? [] : getWorkflowStepsForMode(calibrationMode);
   const progressLabels: Record<WorkflowStep, string> = {
-    netBase: language === 'ko' ? '기둥 하단' : 'Base',
-    netTop: language === 'ko' ? '기둥 상단' : 'Top',
-    ground: language === 'ko' ? '지면' : 'Ground',
+    referenceFrame: language === 'ko' ? '기준' : 'Ref',
     playerHeight: language === 'ko' ? '키' : 'Height',
     playerHeadTop: language === 'ko' ? '머리' : 'Head',
     playerFootBase: language === 'ko' ? '발' : 'Foot',
-    shuttlecock: language === 'ko' ? '셔틀콕' : 'Shuttle',
+    impact: language === 'ko' ? '타구' : 'Impact',
+    shuttlecock: language === 'ko' ? '콕 끝' : 'Shuttle',
   };
-  const progressItems = [
-    { key: 'impact', label: language === 'ko' ? '프레임' : 'Frame', done: annotationStep !== 'impact' },
-    ...(annotationStep === 'method'
-      ? [{ key: 'method', label: language === 'ko' ? '기준' : 'Method', done: false }]
-      : workflowSteps.map((step) => ({
-        key: step,
-        label: progressLabels[step],
-        done: isWorkflowStepComplete(step),
-      }))),
-  ];
+  const progressItems = workflowSteps.map((step) => ({
+    key: step,
+    label: progressLabels[step],
+    done: isWorkflowStepComplete(step),
+  }));
 
   const allAnnotationPoints: Array<{ key: PointStep; point: Point | null; color: string; label: string }> = [
-    { key: 'netBase', point: netBase, color: '#FF453A', label: language === 'ko' ? '하단' : 'Base' },
-    { key: 'netTop', point: netTop, color: '#32ADE6', label: language === 'ko' ? '상단' : 'Top' },
-    { key: 'ground', point: ground, color: '#30D158', label: language === 'ko' ? '지면' : 'Ground' },
     { key: 'playerHeadTop', point: playerHeadTop, color: '#BF5AF2', label: language === 'ko' ? '머리' : 'Head' },
     { key: 'playerFootBase', point: playerFootBase, color: '#64D2FF', label: language === 'ko' ? '발' : 'Foot' },
-    { key: 'shuttlecock', point: shuttlecockPos, color: 'var(--accent-color)', label: language === 'ko' ? '셔틀콕' : 'Shuttle' },
+    { key: 'shuttlecock', point: shuttlecockPos, color: 'var(--accent-color)', label: language === 'ko' ? '콕 끝' : 'Shuttle' },
   ];
+  const isReferenceContext = (
+    annotationStep === 'referenceFrame'
+    || annotationStep === 'playerHeight'
+    || annotationStep === 'playerHeadTop'
+    || annotationStep === 'playerFootBase'
+  );
   const annotationPoints = allAnnotationPoints
-    .filter(({ key }) => isPointRelevantForMode(key, calibrationMode))
-    .filter(({ point }) => point || annotationStep !== 'method');
+    .filter(({ key, point }) => {
+      if (!point) return false;
+      if (key === 'shuttlecock') return !isReferenceContext;
+      return isReferenceContext;
+    });
 
   const isPickingPoint = isPointStep(annotationStep);
-  const selectedPointItems = annotationPoints.filter(({ point }) => point);
-  const modeOptions = [
-    {
-      mode: 'netPost' as CalibrationMode,
-      icon: <Ruler size={18} />,
-      badge: language === 'ko' ? '추천' : 'Recommended',
-      title: language === 'ko' ? '네트 기둥 기준' : 'Net Post',
-      body: language === 'ko' ? '가장 빠르고 입력이 필요 없습니다.' : 'Fastest, with no height input.',
-    },
-    {
-      mode: 'playerHeight' as CalibrationMode,
-      icon: <UserRound size={18} />,
-      badge: language === 'ko' ? '대체' : 'Alternative',
-      title: language === 'ko' ? '선수 키 기준' : 'Player Height',
-      body: language === 'ko' ? '기둥이 잘 안 보일 때 사용합니다.' : 'Use when the post is hard to see.',
-    },
-    {
-      mode: 'combined' as CalibrationMode,
-      icon: <GitCompareArrows size={18} />,
-      badge: language === 'ko' ? '고급' : 'Advanced',
-      title: language === 'ko' ? '두 기준 함께 확인' : 'Compare Both',
-      body: language === 'ko' ? '시간은 더 걸리지만 기준 차이를 비교합니다.' : 'Takes longer and compares both references.',
-    },
-  ];
+  const selectedPointItems = allAnnotationPoints.filter(({ point }) => point);
 
   return (
     <div style={{ background: 'var(--bg-color)', minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ padding: 'calc(14px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left))', display: 'grid', gridTemplateColumns: '40px minmax(0, 1fr) 40px', alignItems: 'center', gap: '8px' }}>
         <button
           type="button"
+          aria-label={language === 'ko' ? '촬영 화면으로 돌아가기' : 'Back to camera'}
           onClick={() => navigate(ROUTES.CAMERA)}
           style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--card-border)', background: 'var(--panel-bg)', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           title={language === 'ko' ? '촬영 화면으로' : 'Back to camera'}
@@ -794,7 +844,7 @@ const AnalysisSetup = () => {
                   style={{ minHeight: 38, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.34)', background: 'rgba(0,0,0,0.62)', color: '#fff', fontSize: '0.76rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', backdropFilter: 'blur(8px)' }}
                 >
                   <RotateCcw size={14} />
-                  {language === 'ko' ? '다시 찍기' : 'Retap'}
+                  {language === 'ko' ? '다시 누르기' : 'Retap'}
                 </button>
                 <button
                   type="button"
@@ -824,31 +874,6 @@ const AnalysisSetup = () => {
             </div>
           )}
         </div>
-
-        {annotationStep === 'method' && (
-          <div style={{ display: 'grid', gap: '8px' }}>
-            {modeOptions.map((option) => (
-              <button
-                key={option.mode}
-                type="button"
-                onClick={() => handleSelectCalibrationMode(option.mode)}
-                disabled={isAnalyzing}
-                style={{ minHeight: 70, borderRadius: '12px', border: option.mode === 'netPost' ? '2px solid var(--accent-color)' : '1px solid var(--card-border)', background: 'var(--panel-bg)', color: 'var(--text-main)', display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: '10px', padding: '12px', textAlign: 'left', boxShadow: option.mode === 'netPost' ? '0 8px 18px rgba(255,159,180,0.14)' : 'none' }}
-              >
-                <span style={{ width: 34, height: 34, borderRadius: '10px', display: 'grid', placeItems: 'center', background: option.mode === 'netPost' ? 'rgba(255,159,180,0.18)' : 'rgba(255,255,255,0.06)', color: option.mode === 'playerHeight' ? '#32ADE6' : 'var(--accent-color)' }}>
-                  {option.icon}
-                </span>
-                <span style={{ minWidth: 0, display: 'grid', gap: '3px' }}>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--text-main)' }}>{option.title}</span>
-                  <span style={{ fontSize: '0.72rem', lineHeight: 1.35, color: 'var(--text-sub)', fontWeight: 700 }}>{option.body}</span>
-                </span>
-                <span style={{ borderRadius: 999, padding: '4px 8px', background: option.mode === 'netPost' ? 'var(--accent-color)' : 'rgba(255,255,255,0.08)', color: option.mode === 'netPost' ? darkButtonText : 'var(--text-main)', fontSize: '0.66rem', fontWeight: 900, whiteSpace: 'nowrap' }}>
-                  {option.badge}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
 
         {annotationStep === 'playerHeight' && (
           <div style={{ background: 'var(--panel-bg)', padding: '16px', borderRadius: '14px', border: '1px solid var(--card-border)', display: 'grid', gap: '12px' }}>
@@ -923,29 +948,34 @@ const AnalysisSetup = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-main)', width: '44px' }}>{currentTime.toFixed(2)}s</span>
             <input
+              aria-label={language === 'ko'
+                ? (annotationStep === 'referenceFrame' ? '기준 자세 선택 슬라이더' : '타구 순간 선택 슬라이더')
+                : (annotationStep === 'referenceFrame' ? 'Reference frame slider' : 'Impact frame slider')}
               type="range"
               min={0}
               max={duration || 1}
               step={0.01}
               value={currentTime}
               onChange={handleTimeChange}
-              disabled={annotationStep !== 'impact' || isAnalyzing}
-              style={{ flex: 1, accentColor: 'var(--accent-color)', height: '20px', opacity: annotationStep === 'impact' ? 1 : 0.45 }}
+              disabled={!isChoosingFrame || isAnalyzing}
+              style={{ flex: 1, accentColor: 'var(--accent-color)', height: '20px', opacity: isChoosingFrame ? 1 : 0.45 }}
             />
             <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-main)', width: '44px', textAlign: 'right' }}>{duration.toFixed(2)}s</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: annotationStep === 'impact' ? '1fr 1fr 1.2fr' : '1fr', gap: '8px' }}>
-            {annotationStep === 'impact' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: isChoosingFrame ? '1fr 1fr 1.2fr' : '1fr', gap: '8px' }}>
+            {isChoosingFrame ? (
               <>
-                <button onClick={() => seekTo(currentTime - 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>- 1프레임</button>
-                <button onClick={() => seekTo(currentTime + 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>+ 1프레임</button>
-                <button onClick={handleConfirmImpactFrame} style={{ padding: '10px 8px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>
-                  {language === 'ko' ? '프레임 저장' : 'Save Frame'}
+                <button type="button" onClick={() => seekTo(currentTime - 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>- 1프레임</button>
+                <button type="button" onClick={() => seekTo(currentTime + 0.03)} style={{ padding: '10px 8px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>+ 1프레임</button>
+                <button type="button" onClick={handleConfirmFrame} style={{ padding: '10px 8px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: darkButtonText, fontSize: '0.78rem', fontWeight: 900 }}>
+                  {language === 'ko'
+                    ? (annotationStep === 'referenceFrame' ? '기준 자세 선택' : '타구 순간 선택')
+                    : (annotationStep === 'referenceFrame' ? 'Save Ref' : 'Save Impact')}
                 </button>
               </>
             ) : (
-              <button onClick={handleRestartAnnotation} style={{ padding: '11px 12px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.82rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <button type="button" onClick={handleRestartAnnotation} style={{ padding: '11px 12px', borderRadius: '10px', background: '#fff', border: '1px solid var(--card-border)', color: darkButtonText, fontSize: '0.82rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <RotateCcw size={15} />
                 {language === 'ko' ? '프레임과 기준점 다시 지정' : 'Restart Frame and Points'}
               </button>
@@ -954,6 +984,7 @@ const AnalysisSetup = () => {
         </div>
 
         <button
+          type="button"
           onClick={handleStartAnalysis}
           disabled={!canAnalyze || isAnalyzing}
           style={{

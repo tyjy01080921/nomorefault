@@ -21,7 +21,7 @@ export const getPoseLandmarker = async (): Promise<PoseLandmarker> => {
           delegate: 'GPU'
         },
         runningMode: 'VIDEO',
-        numPoses: 1,
+        numPoses: 3,
       });
       return poseLandmarkerInstance;
     } catch (e) {

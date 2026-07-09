@@ -3,7 +3,6 @@ export const BWF = {
     SERVICE_HEIGHT_LIMIT: 1.15,
     CHECK_REQUIRED_MARGIN: 0.10,
     FAULT_THRESHOLD: 1.25,
-    NET_POST_HEIGHT: 1.55,
 };
 
 export const VERDICT = {

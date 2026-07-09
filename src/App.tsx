@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ROUTES } from './utils/constants';
@@ -8,7 +8,7 @@ import AnalysisSetup from './pages/AnalysisSetup';
 import Result from './pages/Result';
 import History from './pages/History';
 import { useStore } from './store/useStore';
-import { Sun, Moon, Globe, AlertTriangle, Link, RefreshCw } from 'lucide-react';
+import { Sun, Moon, Globe, AlertTriangle, Link } from 'lucide-react';
 
 const AppContent = () => {
   const location = useLocation();
@@ -16,9 +16,6 @@ const AppContent = () => {
   const setIsDarkMode = useStore((state) => state.setIsDarkMode);
   const language = useStore((state) => state.language);
   const setLanguage = useStore((state) => state.setLanguage);
-  const needRefresh = useStore((state) => state.needRefresh);
-  const updateServiceWorker = useStore((state) => state.updateServiceWorker);
-  const [isUpdating, setIsUpdating] = useState(false);
   const isCameraRoute = location.pathname === ROUTES.CAMERA;
   const isAnalysisRoute = location.pathname === ROUTES.ANALYSIS;
   const isImmersiveRoute = isCameraRoute || isAnalysisRoute;
@@ -55,42 +52,6 @@ const AppContent = () => {
     }
   };
 
-  const handleUpdateClick = async () => {
-    if (isUpdating) return;
-
-    const currentPath = window.location.pathname;
-    const shouldConfirmUpdate = [
-      ROUTES.CAMERA,
-      ROUTES.ANALYSIS,
-      ROUTES.RESULT,
-    ].includes(currentPath);
-
-    if (shouldConfirmUpdate) {
-      const confirmed = window.confirm(
-        language === 'ko'
-          ? '업데이트하면 현재 작업이 새로고침됩니다. 계속할까요?'
-          : 'Updating will reload your current work. Continue?'
-      );
-      if (!confirmed) return;
-    }
-
-    setIsUpdating(true);
-    window.setTimeout(() => {
-      window.location.reload();
-    }, 8000);
-
-    try {
-      if (updateServiceWorker) {
-        await updateServiceWorker();
-      } else {
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error('Failed to update service worker:', err);
-      window.location.reload();
-    }
-  };
-
   const headerRoundButtonStyle: CSSProperties = {
     background: 'rgba(255, 159, 180, 0.08)',
     border: '1px solid var(--card-border)',
@@ -122,7 +83,7 @@ const AppContent = () => {
   };
 
   return (
-    <div style={{ background: isImmersiveRoute ? '#000' : 'var(--bg-color)', color: 'var(--text-main)', minHeight: isImmersiveRoute ? '100dvh' : '100vh', height: isCameraRoute ? '100dvh' : undefined, overflow: isCameraRoute ? 'hidden' : undefined, paddingBottom: needRefresh && !isImmersiveRoute ? '88px' : 0, transition: 'background-color 0.3s, color 0.3s' }}>
+    <div style={{ background: isImmersiveRoute ? '#000' : 'var(--bg-color)', color: 'var(--text-main)', minHeight: isImmersiveRoute ? '100dvh' : '100vh', height: isCameraRoute ? '100dvh' : undefined, overflow: isCameraRoute ? 'hidden' : undefined, transition: 'background-color 0.3s, color 0.3s' }}>
       {!isImmersiveRoute && (
         <>
           {/* Global Header */}
@@ -145,9 +106,11 @@ const AppContent = () => {
           >
             {/* Left: Dark mode toggle */}
             <button
+              type="button"
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={headerRoundButtonStyle}
               title={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
+              aria-label={language === 'ko' ? '다크모드 토글' : 'Toggle dark mode'}
             >
               {isDarkMode ? <Sun size={16} color="var(--accent-color)" /> : <Moon size={16} color="var(--accent-color)" />}
             </button>
@@ -180,16 +143,20 @@ const AppContent = () => {
             {/* Right: Actions (Share + Language) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
-                 onClick={copyUrlToClipboard}
-                 style={headerRoundButtonStyle}
-                 title={language === 'ko' ? '공유하기' : 'Share'}
-               >
-                 <Link size={14} />
-               </button>
+                type="button"
+                onClick={copyUrlToClipboard}
+                style={headerRoundButtonStyle}
+                title={language === 'ko' ? '공유하기' : 'Share'}
+                aria-label={language === 'ko' ? '공유하기' : 'Share'}
+              >
+                <Link size={14} />
+              </button>
 
               <button
+                type="button"
                 onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
                 style={headerPillButtonStyle}
+                aria-label={language === 'ko' ? '영어로 전환' : 'Switch to Korean'}
               >
                 <Globe size={14} />
                 {language === 'ko' ? 'EN' : 'KO'}
@@ -197,70 +164,6 @@ const AppContent = () => {
             </div>
           </header>
         </>
-      )}
-
-      {needRefresh && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 100,
-            background: 'var(--panel-bg)',
-            borderTop: '1px solid var(--card-border)',
-            backdropFilter: 'blur(12px)',
-            boxSizing: 'border-box',
-            padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: '720px',
-              margin: '0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 700 }}>
-                {language === 'ko' ? '새 버전이 있습니다' : 'New version available'}
-              </div>
-              <div style={{ color: 'var(--text-sub)', fontSize: '12px', lineHeight: 1.4, marginTop: '2px' }}>
-                {language === 'ko' ? '업데이트하면 최신 앱으로 다시 열립니다.' : 'Update to reload with the latest app.'}
-              </div>
-            </div>
-            <button
-              onClick={handleUpdateClick}
-              disabled={isUpdating}
-              style={{
-                background: isUpdating ? 'rgba(255, 159, 180, 0.45)' : 'var(--accent-color)',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#fff',
-                cursor: isUpdating ? 'default' : 'pointer',
-                minWidth: '104px',
-                height: '38px',
-                padding: '0 14px',
-                fontSize: '13px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <RefreshCw size={15} />
-              {isUpdating
-                ? (language === 'ko' ? '진행 중' : 'Updating')
-                : (language === 'ko' ? '업데이트' : 'Update')}
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Page Content */}

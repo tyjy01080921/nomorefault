@@ -7,12 +7,22 @@ import { generateComparisonCard, shareCard } from '../utils/shareCard';
 
 // ─── 상수 ────────────────────────────────────────────────────
 
-const VERDICT_LABEL: Record<string, { short: string; color: string }> = {
-  [VERDICT.NORMAL]:         { short: 'Good',   color: '#30D158' },
-  [VERDICT.CHECK_REQUIRED]: { short: 'Tricky', color: '#FFB020' },
-  [VERDICT.FAULT]:          { short: 'Fault',  color: '#FF453A' },
-  [VERDICT.PERFECT]:        { short: 'Good',   color: '#30D158' },
-  [VERDICT.VAR_CHALLENGE]:  { short: 'Tricky', color: '#FFB020' },
+const VERDICT_LABEL: Record<string, { koShort: string; enShort: string; chart: string; color: string }> = {
+  [VERDICT.NORMAL]:         { koShort: '좋아요!', enShort: 'Good', chart: 'Good', color: '#30D158' },
+  [VERDICT.CHECK_REQUIRED]: { koShort: '이정도는 OK?!', enShort: 'Tricky', chart: 'OK?', color: '#FFB020' },
+  [VERDICT.FAULT]:          { koShort: '이건 선을 넘었다..😅', enShort: 'Fault', chart: 'Fault', color: '#FF453A' },
+  [VERDICT.PERFECT]:        { koShort: '좋아요!', enShort: 'Good', chart: 'Good', color: '#30D158' },
+  [VERDICT.VAR_CHALLENGE]:  { koShort: '이정도는 OK?!', enShort: 'Tricky', chart: 'OK?', color: '#FFB020' },
+};
+
+const getVerdictLabel = (verdict: string, language: 'ko' | 'en') => {
+  const label = VERDICT_LABEL[verdict] ?? VERDICT_LABEL[VERDICT.CHECK_REQUIRED];
+
+  return {
+    short: language === 'ko' ? label.koShort : label.enShort,
+    chart: label.chart,
+    color: label.color,
+  };
 };
 
 function formatDate(iso: string): string {
@@ -77,12 +87,13 @@ const History = () => {
     setSharing(true);
     try {
       const blob = await generateComparisonCard({
-        labelA: `A: ${VERDICT_LABEL[entA.verdict]?.short ?? entA.verdict} (${formatDate(entA.date)})`,
-        labelB: `B: ${VERDICT_LABEL[entB.verdict]?.short ?? entB.verdict} (${formatDate(entB.date)})`,
+        labelA: `A: ${getVerdictLabel(entA.verdict, language).short} (${formatDate(entA.date)})`,
+        labelB: `B: ${getVerdictLabel(entB.verdict, language).short} (${formatDate(entB.date)})`,
         resultA: { verdict: entA.verdict, shuttlecockHeightM: entA.shuttlecockHeightM, heightDeltaM: entA.heightDeltaM },
         resultB: { verdict: entB.verdict, shuttlecockHeightM: entB.shuttlecockHeightM, heightDeltaM: entB.heightDeltaM },
+        language,
       });
-      await shareCard(blob, 'No More Fault — service comparison');
+      await shareCard(blob, 'No More Fault — serve history');
     } catch (e) {
       console.warn('[compare share]', e);
     } finally {
@@ -197,7 +208,7 @@ const History = () => {
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: `${BAR_MAX_HEIGHT + 20}px` }}>
             {chartEntries.map((e) => {
-              const cfg = VERDICT_LABEL[e.verdict] ?? VERDICT_LABEL[VERDICT.CHECK_REQUIRED];
+              const cfg = getVerdictLabel(e.verdict, language);
               return (
                 <div key={e.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div style={{
@@ -208,7 +219,7 @@ const History = () => {
                     opacity: 0.8,
                   }} />
                   <div style={{ fontSize: '9px', color: 'var(--text-sub)', whiteSpace: 'nowrap' }}>
-                    {cfg.short}
+                    {cfg.chart}
                   </div>
                 </div>
               );
@@ -220,7 +231,7 @@ const History = () => {
       {/* 기록 리스트 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {entries.map((entry, idx) => {
-          const cfg = VERDICT_LABEL[entry.verdict] ?? VERDICT_LABEL[VERDICT.CHECK_REQUIRED];
+          const cfg = getVerdictLabel(entry.verdict, language);
           const isSelected = selected.has(entry.id);
 
           return (

@@ -1,7 +1,7 @@
 {
   "name": "nomorefault",
   "private": true,
-  "version": "1.2.4",
+  "version": "1.2.6",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -35,7 +35,6 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.3.1",
-    "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.0.15"
   }
 }

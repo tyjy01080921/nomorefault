@@ -223,6 +223,26 @@ const Camera = () => {
       : 'Could not start the camera. Check permissions and browser settings.';
   };
 
+  const getCameraErrorHelp = () => {
+    if (!cameraError) return [];
+
+    if (cameraError === 'permission') {
+      return language === 'ko'
+        ? ['주소창의 자물쇠 또는 카메라 아이콘을 누르세요.', '카메라를 허용으로 바꾼 뒤 새로고침하세요.', '다시 시도를 눌러 촬영을 시작하세요.']
+        : ['Tap the lock or camera icon in the address bar.', 'Allow camera access, then refresh the page.', 'Tap Try Again to start recording.'];
+    }
+
+    if (cameraError === 'unsupported' && !window.isSecureContext) {
+      return language === 'ko'
+        ? ['Cloudflare HTTPS 주소로 접속했는지 확인하세요.', '크롬 또는 사파리 최신 버전에서 다시 열어주세요.']
+        : ['Open the Cloudflare HTTPS address.', 'Try again in the latest Chrome or Safari.'];
+    }
+
+    return language === 'ko'
+      ? ['다른 앱에서 카메라를 사용 중이면 종료하세요.', '브라우저를 새로고침한 뒤 다시 시도하세요.']
+      : ['Close other apps using the camera.', 'Refresh the browser and try again.'];
+  };
+
   useEffect(() => {
     startCamera();
 
@@ -254,11 +274,17 @@ const Camera = () => {
   const levelText = language === 'ko'
     ? (isLevel ? '각도 좋음' : '기울기 맞추기')
     : (isLevel ? 'Aligned' : 'Level');
+  const shootingChecklist = language === 'ko'
+    ? ['옆 90도', '1초 정지', '서버 전신', '뒤 사람 피하기', '폰 고정']
+    : ['Side 90°', 'Pause 1s', 'Server full body', 'Avoid bystanders', 'Phone steady'];
+  const cameraErrorHelp = getCameraErrorHelp();
 
   return (
     <div className="camera-container" style={{ background: '#000', height: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: 'calc(14px + env(safe-area-inset-left))', zIndex: 40, display: 'flex', gap: '12px' }}>
         <button
+          type="button"
+          aria-label={language === 'ko' ? '홈으로 돌아가기' : 'Back to home'}
           onClick={() => navigate(ROUTES.HOME)}
           style={{ width: 40, height: 40, background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.18)', color: '#fff', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}
         >
@@ -268,6 +294,10 @@ const Camera = () => {
 
       <div style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', right: 'calc(14px + env(safe-area-inset-right))', zIndex: 40 }}>
         <button
+          type="button"
+          aria-label={showGuides
+            ? (language === 'ko' ? '촬영 가이드 숨기기' : 'Hide recording guides')
+            : (language === 'ko' ? '촬영 가이드 표시' : 'Show recording guides')}
           onClick={() => setShowGuides(!showGuides)}
           style={{
             background: showGuides ? 'var(--accent-color)' : 'rgba(0,0,0,0.5)',
@@ -313,8 +343,18 @@ const Camera = () => {
             <div style={{ position: 'absolute', top: '50%', left: '50%', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.82)', borderRadius: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 26 }} />
 
             <div style={{ position: 'absolute', top: 'calc(68px + env(safe-area-inset-top))', left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.48)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '16px', padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.35, textAlign: 'center', backdropFilter: 'blur(10px)', width: 'max-content', maxWidth: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
-              {language === 'ko' ? '네트 기둥을 세로선에 맞춰 촬영' : 'Align the net post to the vertical guide'}
+              {language === 'ko' ? '서비스 전 1초간 똑바로 선 뒤 시작' : 'Stand upright for 1 second before serving'}
             </div>
+
+            {!cameraError && (
+              <div style={{ position: 'absolute', top: 'calc(112px + env(safe-area-inset-top))', left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'grid', gridTemplateColumns: 'repeat(2, auto)', gap: '6px', color: '#fff', width: 'max-content', maxWidth: 'calc(100% - 32px)' }}>
+                {shootingChecklist.map((item, index) => (
+                  <span key={item} style={{ borderRadius: 999, background: 'rgba(0,0,0,0.46)', border: '1px solid rgba(255,255,255,0.16)', padding: '5px 8px', fontSize: '0.68rem', fontWeight: 900, whiteSpace: 'nowrap', backdropFilter: 'blur(8px)' }}>
+                    {index + 1}. {item}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div style={{ position: 'absolute', bottom: 'calc(118px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)', zIndex: 30, color: '#fff', background: 'rgba(0,0,0,0.48)', border: `1px solid ${isLevel ? 'rgba(48,209,88,0.58)' : 'rgba(255,255,255,0.18)'}`, borderRadius: 999, padding: '8px 12px 8px 8px', display: 'flex', gap: '10px', alignItems: 'center', backdropFilter: 'blur(10px)', boxShadow: '0 8px 24px rgba(0,0,0,0.22)' }}>
               <div style={{ width: 48, height: 48, borderRadius: '50%', border: `2px solid ${isLevel ? 'rgba(48,209,88,0.82)' : 'rgba(255,255,255,0.74)'}`, background: 'rgba(255,255,255,0.10)', position: 'relative', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.18)' }}>
@@ -343,8 +383,19 @@ const Camera = () => {
               <div style={{ fontSize: '0.95rem', lineHeight: 1.5, fontWeight: 700, marginBottom: '14px' }}>
                 {getCameraErrorMessage()}
               </div>
+              {cameraErrorHelp.length > 0 && (
+                <div style={{ textAlign: 'left', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '10px 12px', marginBottom: '14px', display: 'grid', gap: '6px' }}>
+                  {cameraErrorHelp.map((step, index) => (
+                    <div key={step} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr)', gap: '8px', alignItems: 'start', fontSize: '0.76rem', lineHeight: 1.45, color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>
+                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-color)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.66rem', fontWeight: 900 }}>{index + 1}</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
+                aria-label={language === 'ko' ? '카메라 다시 시도' : 'Try camera again'}
                 onClick={startCamera}
                 style={{ border: 'none', borderRadius: '10px', padding: '10px 16px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
               >
@@ -355,16 +406,21 @@ const Camera = () => {
         )}
       </div>
 
+      {(!cameraError || videoPreviewUrl) && (
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%', minHeight: 132, padding: '24px max(16px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 45, background: 'linear-gradient(transparent, rgba(0,0,0,0.64))', boxSizing: 'border-box' }}>
         {videoPreviewUrl ? (
           <div style={{ display: 'flex', gap: '20px', width: '100%', maxWidth: '320px' }}>
             <button
+              type="button"
+              aria-label={language === 'ko' ? '다시 촬영하기' : 'Retake video'}
               onClick={handleRetry}
               style={{ flex: 1, padding: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backdropFilter: 'blur(10px)' }}
             >
               <RotateCcw size={20} /> {language === 'ko' ? '다시 촬영' : 'Retake'}
             </button>
             <button
+              type="button"
+              aria-label={language === 'ko' ? '이 영상 사용하기' : 'Use this video'}
               onClick={handleUseVideo}
               style={{ flex: 1, padding: '16px', borderRadius: '16px', background: 'var(--accent-color)', color: '#fff', border: 'none', fontWeight: 700, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
             >
@@ -373,6 +429,10 @@ const Camera = () => {
           </div>
         ) : (
           <button
+            type="button"
+            aria-label={isRecording
+              ? (language === 'ko' ? '녹화 정지' : 'Stop recording')
+              : (language === 'ko' ? '녹화 시작' : 'Start recording')}
             className="record-btn"
             onClick={toggleRecording}
             style={{ width: 76, height: 76, flex: '0 0 auto', boxSizing: 'border-box', background: 'transparent', border: '4px solid white', borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0, margin: 0, lineHeight: 0, appearance: 'none', WebkitAppearance: 'none' }}
@@ -383,6 +443,7 @@ const Camera = () => {
           </button>
         )}
       </div>
+      )}
     </div>
   );
 };
