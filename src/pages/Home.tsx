@@ -203,6 +203,7 @@ const Home = () => {
       <div
         ref={tripAdRef}
         style={{
+          position: 'relative',
           width: '100%',
           overflow: 'hidden',
           borderRadius: '8px',
@@ -226,6 +227,19 @@ const Home = () => {
           title="제휴 광고"
           loading="lazy"
           allow="geolocation 'none'; camera 'none'; microphone 'none'; payment 'none'"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+        <a
+          href="https://kr.trip.com/partners/ad/SB13686962?Allianceid=7822879&SID=297886051&trip_sub1="
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          aria-label={language === 'ko' ? 'Trip.com 제휴 링크 새 창에서 열기' : 'Open the Trip.com affiliate link in a new window'}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+          }}
         />
       </div>
 
