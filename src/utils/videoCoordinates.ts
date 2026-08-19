@@ -9,7 +9,7 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function getFittedMediaRect(
+export function getFittedMediaRect(
   containerWidth: number,
   containerHeight: number,
   mediaWidth: number,
@@ -36,6 +36,19 @@ function getFittedMediaRect(
     y: (containerHeight - height) / 2,
     width,
     height,
+  };
+}
+
+export function getPrecisionAdjustedPoint(
+  basePoint: Point,
+  localPoint: Point,
+  zoom: number,
+): Point {
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+
+  return {
+    x: clamp01(basePoint.x + (localPoint.x - 0.5) / safeZoom),
+    y: clamp01(basePoint.y + (localPoint.y - 0.5) / safeZoom),
   };
 }
 

@@ -13,6 +13,11 @@ import {
 } from '../utils/verdict';
 import type { PoseLandmark } from '../utils/pose';
 import { selectServerPose, type ServerPoseTrackingState } from '../utils/serverPose';
+import {
+  containerPointToVideoPoint,
+  getFittedMediaRect,
+  getPrecisionAdjustedPoint,
+} from '../utils/videoCoordinates';
 
 type AnnotationStep = 'referenceFrame' | 'playerHeight' | 'playerHeadTop' | 'playerFootBase' | 'impact' | 'shuttlecock' | 'ready';
 type FrameStep = 'referenceFrame' | 'impact';
@@ -34,6 +39,11 @@ interface OverlayLayout {
   top: number;
   width: number;
   height: number;
+}
+
+interface PrecisionGesture {
+  pointerId: number;
+  basePoint: Point;
 }
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
@@ -120,6 +130,7 @@ const AnalysisSetup = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const poseTrackingRef = useRef<ServerPoseTrackingState | null>(null);
+  const precisionGestureRef = useRef<PrecisionGesture | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(1);
@@ -185,13 +196,28 @@ const AnalysisSetup = () => {
 
     const playerRect = player.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
-    if (playerRect.width <= 0 || playerRect.height <= 0 || videoRect.width <= 0 || videoRect.height <= 0) return;
+    if (
+      playerRect.width <= 0
+      || playerRect.height <= 0
+      || videoRect.width <= 0
+      || videoRect.height <= 0
+      || video.videoWidth <= 0
+      || video.videoHeight <= 0
+    ) return;
+
+    const fitted = getFittedMediaRect(
+      videoRect.width,
+      videoRect.height,
+      video.videoWidth,
+      video.videoHeight,
+      'contain',
+    );
 
     const next = {
-      left: (videoRect.left - playerRect.left) / playerRect.width,
-      top: (videoRect.top - playerRect.top) / playerRect.height,
-      width: videoRect.width / playerRect.width,
-      height: videoRect.height / playerRect.height,
+      left: (videoRect.left - playerRect.left + fitted.x) / playerRect.width,
+      top: (videoRect.top - playerRect.top + fitted.y) / playerRect.height,
+      width: fitted.width / playerRect.width,
+      height: fitted.height / playerRect.height,
     };
 
     setOverlayLayout((prev) => (
@@ -207,7 +233,17 @@ const AnalysisSetup = () => {
   useEffect(() => {
     updateOverlayLayout();
     window.addEventListener('resize', updateOverlayLayout);
-    return () => window.removeEventListener('resize', updateOverlayLayout);
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(updateOverlayLayout);
+
+    if (playerRef.current) observer?.observe(playerRef.current);
+    if (videoRef.current) observer?.observe(videoRef.current);
+
+    return () => {
+      window.removeEventListener('resize', updateOverlayLayout);
+      observer?.disconnect();
+    };
   }, [updateOverlayLayout]);
 
   const seekTo = useCallback((time: number) => {
@@ -360,22 +396,37 @@ const AnalysisSetup = () => {
 
   const getVideoPointFromClient = useCallback((clientX: number, clientY: number) => {
     const video = videoRef.current;
-    if (!video) return null;
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return null;
 
     const rect = video.getBoundingClientRect();
+    const fitted = getFittedMediaRect(
+      rect.width,
+      rect.height,
+      video.videoWidth,
+      video.videoHeight,
+      'contain',
+    );
+    const mediaLeft = rect.left + fitted.x;
+    const mediaTop = rect.top + fitted.y;
+    const mediaRight = mediaLeft + fitted.width;
+    const mediaBottom = mediaTop + fitted.height;
+
     if (
-      clientX < rect.left
-      || clientX > rect.right
-      || clientY < rect.top
-      || clientY > rect.bottom
+      clientX < mediaLeft
+      || clientX > mediaRight
+      || clientY < mediaTop
+      || clientY > mediaBottom
     ) {
       return null;
     }
 
-    return {
-      x: clamp01((clientX - rect.left) / rect.width),
-      y: clamp01((clientY - rect.top) / rect.height),
-    };
+    return containerPointToVideoPoint(
+      { x: clientX, y: clientY },
+      rect,
+      video.videoWidth,
+      video.videoHeight,
+      'contain',
+    );
   }, []);
 
   const handlePlayerPointer = (e: PointerEvent<HTMLDivElement>) => {
@@ -393,7 +444,7 @@ const AnalysisSetup = () => {
   };
 
   const handlePlayerPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!isPointStep(annotationStep) || isAnalyzing || !draftPoint) return;
+    if (!isPointStep(annotationStep) || isAnalyzing || !draftPoint || e.buttons === 0) return;
 
     const point = getVideoPointFromClient(e.clientX, e.clientY);
     if (!point) return;
@@ -533,20 +584,54 @@ const AnalysisSetup = () => {
     requestAnimationFrame(updateOverlayLayout);
   };
 
-  const handlePrecisionPointer = (e: PointerEvent<HTMLDivElement>) => {
-    if (!draftPoint || !isPointStep(annotationStep) || isAnalyzing) return;
-    if (e.type === 'pointermove' && e.buttons === 0) return;
-
+  const getPrecisionLocalPoint = (e: PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const localX = clamp01((e.clientX - rect.left) / rect.width);
-    const localY = clamp01((e.clientY - rect.top) / rect.height);
+    return {
+      x: clamp01((e.clientX - rect.left) / rect.width),
+      y: clamp01((e.clientY - rect.top) / rect.height),
+    };
+  };
+
+  const handlePrecisionPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!draftPoint || !isPointStep(annotationStep) || isAnalyzing) return;
 
     e.preventDefault();
+    e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDraftPoint({
-      x: clamp01(draftPoint.x + (localX - 0.5) / precisionZoom),
-      y: clamp01(draftPoint.y + (localY - 0.5) / precisionZoom),
-    });
+    precisionGestureRef.current = {
+      pointerId: e.pointerId,
+      basePoint: draftPoint,
+    };
+    setDraftPoint(getPrecisionAdjustedPoint(
+      draftPoint,
+      getPrecisionLocalPoint(e),
+      precisionZoom,
+    ));
+  };
+
+  const handlePrecisionPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const gesture = precisionGestureRef.current;
+    if (
+      !gesture
+      || gesture.pointerId !== e.pointerId
+      || !isPointStep(annotationStep)
+      || isAnalyzing
+    ) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setDraftPoint(getPrecisionAdjustedPoint(
+      gesture.basePoint,
+      getPrecisionLocalPoint(e),
+      precisionZoom,
+    ));
+  };
+
+  const handlePrecisionPointerEnd = (e: PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (precisionGestureRef.current?.pointerId === e.pointerId) {
+      precisionGestureRef.current = null;
+    }
   };
 
   const projectVideoPoint = useCallback((point: Point) => ({
@@ -759,7 +844,7 @@ const AnalysisSetup = () => {
               setCurrentTime(videoRef.current?.currentTime || currentTime);
               updateOverlayLayout();
             }}
-            style={{ width: '100%', maxHeight: '50vh', display: 'block' }}
+            style={{ width: '100%', maxHeight: '50vh', display: 'block', objectFit: 'contain' }}
           />
           <canvas
             ref={canvasRef}
@@ -804,9 +889,18 @@ const AnalysisSetup = () => {
           {draftPoint && activePointStep && (
             <div
               onPointerDown={(e) => e.stopPropagation()}
+              onPointerMove={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onPointerCancel={(e) => e.stopPropagation()}
               style={{ position: 'absolute', left: 10, right: 10, top: 10, zIndex: 28, display: 'grid', justifyItems: 'center', gap: '8px', pointerEvents: 'auto' }}
             >
-              <div style={{ width: 'min(74vw, 270px)', aspectRatio: videoAspectRatio, maxHeight: '176px', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.92)', boxShadow: '0 8px 24px rgba(0,0,0,0.48)', background: '#111', position: 'relative', touchAction: 'none' }} onPointerDown={handlePrecisionPointer} onPointerMove={handlePrecisionPointer}>
+              <div
+                style={{ width: 'min(74vw, 270px)', aspectRatio: videoAspectRatio, maxHeight: '176px', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.92)', boxShadow: '0 8px 24px rgba(0,0,0,0.48)', background: '#111', position: 'relative', touchAction: 'none' }}
+                onPointerDown={handlePrecisionPointerDown}
+                onPointerMove={handlePrecisionPointerMove}
+                onPointerUp={handlePrecisionPointerEnd}
+                onPointerCancel={handlePrecisionPointerEnd}
+              >
                 {framePreviewUrl ? (
                   <img
                     src={framePreviewUrl}
